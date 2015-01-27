@@ -5,8 +5,10 @@ Content inside DotFiles:
 
 * MPV config
 * Bashrc
+* Personal extra vim configurations
 
-My VimConf is not included in this package because you can find it at this url:
+My base .VIMRC is not included in this package because you can find it at this url:
+
     https://github.com/Numkil/VimConf
 
 

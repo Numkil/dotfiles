@@ -1,0 +1,5 @@
+    " scala
+    NeoBundle 'derekwyatt/vim-scala'
+
+    " Import java automaticlys
+    NeoBundle 'rustushki/JavaImp.vim--Lee'

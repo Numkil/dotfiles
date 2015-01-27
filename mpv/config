@@ -1,0 +1,48 @@
+####MY MPV CONFIG####
+# Video
+vo=opengl-hq,xv
+
+# Cache
+cache=20000         # Default cache of 20 mBytes
+
+# Audio
+ao=pulse,alsa       # Prefer pulse then alsa
+audio-channels=2    # Stereo sound
+af=drc              #TODO I forgot
+af=scaletempo       # When changing playback speed, keep the pitch
+gapless-audio       # Reserve the audio device for all playbacks
+
+# Subtitles behavior and feel
+sub-auto=fuzzy                      # Load all subtitles, also in [sub-paths]
+demuxer-mkv-subtitle-preroll        # See if subtitles that overlap can be placed on top of each other
+ass-force-style=Kerning=yes         # Enable kerning because pretty
+slang=en,eng,English                # Prefered subtitle and audio languages here
+alang=Korean,kor,Japanese,jpn,jp,English,eng,en
+
+# Subtitles look
+sub-text-font="Deja Vu Sans"
+sub-text-font-size=42
+sub-text-margin-y=36
+sub-text-color="#ffffffff"
+sub-text-border-color="#ff262626"
+sub-text-border-size=1.5
+sub-text-shadow-offset=1
+sub-text-shadow-color="#33000000"
+sub-text-spacing=0.3
+
+# Make progress-bar minimal af
+osd-font="Deja Vu Sans"
+osd-font-size=42
+osd-bar-h=2
+osd-bar-w=90
+osd-bar-align-x=0
+osd-bar-align-y=0.95
+osd-border-size=1
+osd-color='#fdfdfd'
+osd-border-color='#ff262626'
+osd-shadow-color='#33000000'
+osd-shadow-offset=1
+
+# Misc
+# keep-open -> Doesn't work with gapless-playback when streaming
+ytdl=yes
