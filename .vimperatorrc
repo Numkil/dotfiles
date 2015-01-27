@@ -1,0 +1,4 @@
+:set gui=nonavigation
+
+autocmd LocationChange .*                             js modes.passAllKeys = false
+autocmd LocationChange facebook\\.com                 js modes.passAllKeys = true
