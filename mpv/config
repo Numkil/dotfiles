@@ -1,6 +1,7 @@
 ####MY MPV CONFIG####
 # Video
 vo=opengl-hq,xv
+framedrop=vo
 
 # Cache
 cache=20000         # Default cache of 20 mBytes
@@ -44,5 +45,5 @@ osd-shadow-color='#33000000'
 osd-shadow-offset=1
 
 # Misc
-# keep-open -> Doesn't work with gapless-playback when streaming
-ytdl=yes
+ytdl=yes                                 # Force ytdl
+ytdl-format=bestvideo+bestaudio/best     # Always use 1080p+ or 60fps
