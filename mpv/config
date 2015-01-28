@@ -1,6 +1,7 @@
 ####MY MPV CONFIG####
 # Video
 vo=opengl-hq,xv
+hwdec=vdpau
 framedrop=vo
 
 # Cache
@@ -47,3 +48,16 @@ osd-shadow-offset=1
 # Misc
 ytdl=yes                                 # Force ytdl
 ytdl-format=bestvideo+bestaudio/best     # Always use 1080p+ or 60fps
+
+# Extensions
+[extension.webm]
+loop-file=inf
+
+[extension.mp3]
+no-video
+
+[extension.flac]
+no-video
+
+[extension.ogg]
+no-video
