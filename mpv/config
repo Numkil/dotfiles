@@ -1,7 +1,9 @@
 ####MY MPV CONFIG####
 # Video
 vo=opengl-hq,xv
-hwdec=vdpau
+vf=gradfun
+display-fps=60
+fs
 framedrop=vo
 
 # Cache
