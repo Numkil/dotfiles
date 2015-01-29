@@ -1,10 +1,9 @@
 ####MY MPV CONFIG####
 # Video
-vo=opengl-hq,xv
-vf=gradfun
-display-fps=60
-fs
-framedrop=vo
+vo=opengl-hq,xv     # Default to opengl for decoding video otherwise xv
+display-fps=60      # Set the maximum assumed display FPS used with --framedrop
+vf=gradfun          # Enable ffmpegs's debanding filter
+framedrop=vo        # Drop late frames on video output, but still decode and filter them.
 
 # Cache
 cache=20000         # Default cache of 20 mBytes
@@ -12,15 +11,15 @@ cache=20000         # Default cache of 20 mBytes
 # Audio
 ao=pulse,alsa       # Prefer pulse then alsa
 audio-channels=2    # Stereo sound
-af=drc              #TODO I forgot
+af=drc              # Use Dynamic Range Compression filter on audio
 af=scaletempo       # When changing playback speed, keep the pitch
 gapless-audio       # Reserve the audio device for all playbacks
 
 # Subtitles behavior and feel
-sub-auto=fuzzy                      # Load all subtitles, also in [sub-paths]
-demuxer-mkv-subtitle-preroll        # See if subtitles that overlap can be placed on top of each other
-ass-force-style=Kerning=yes         # Enable kerning because pretty
-slang=en,eng,English                # Prefered subtitle and audio languages here
+sub-auto=fuzzy                           # Load all subtitles, also in [sub-paths]
+demuxer-mkv-subtitle-preroll             # See if subtitles that overlap can be placed on top of each other
+ass-force-style=Kerning=yes              # Enable kerning because pretty
+slang=en,eng,English                     # Prefered subtitle and audio languages here
 alang=Korean,kor,Japanese,jpn,jp,English,eng,en
 
 # Subtitles look
@@ -50,16 +49,8 @@ osd-shadow-offset=1
 # Misc
 ytdl=yes                                 # Force ytdl
 ytdl-format=bestvideo+bestaudio/best     # Always use 1080p+ or 60fps
+audio-display=no                         # Disable display of video when playing music files
 
 # Extensions
 [extension.webm]
 loop-file=inf
-
-[extension.mp3]
-no-video
-
-[extension.flac]
-no-video
-
-[extension.ogg]
-no-video
