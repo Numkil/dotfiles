@@ -63,7 +63,7 @@ esac
 ####ALIAS####
 
 #My own cpp compiler
-alias gppcompile="perl ~/Documents/PersonalProjects/GppWrapper/GppCLI.pl"
+alias gppcompile="perl ~/Documents/PersonalProjects/GppWrapper/lib/GppCLI.pl"
 #Force rm interactive mode
 alias rm="rm -i"
 #Lock the screen
