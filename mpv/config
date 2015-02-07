@@ -1,6 +1,8 @@
 ####MY MPV CONFIG####
 # Video
-vo=opengl-hq:lscale=lanczos,xv     # Default to opengl for decoding video otherwise xv
+
+# Use opengl-hq with the following personal settings. This should be quite optimal for me
+vo=opengl-hq:pbo:lscale=spline36:cscale=spline36:scaler-resizes-only:dither-depth=8:temporal-dither
 display-fps=60      # Set the maximum assumed display FPS used with --framedrop
 vf=gradfun          # Enable ffmpegs's debanding filter
 framedrop=vo        # Drop late frames on video output, but still decode and filter them.
