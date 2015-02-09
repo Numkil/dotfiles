@@ -1,5 +1,2 @@
-    " scala
-    NeoBundle 'derekwyatt/vim-scala'
-
-    " Import java automaticlys
-    NeoBundle 'rustushki/JavaImp.vim--Lee'
+    " Support syntax for .php.twig files
+    NeoBundle 'evidens/vim-twig'
