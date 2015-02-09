@@ -70,6 +70,8 @@ alias rm="rm -i"
 alias afk="gnome-screensaver-command --lock"
 #Shortcut for my own personal projects folder
 alias cdp="cd ~/Documents/PersonalProjects"
+#Start symfony server ONLY WORKS INSIDE A SYMFONY DIRECTORY
+alias symforun="php app/console server:run"
 
 ####AWESOME BASH PROMPT####
 
