@@ -2,3 +2,5 @@
 
 autocmd LocationChange .*                             js modes.passAllKeys = false
 autocmd LocationChange facebook\\.com                 js modes.passAllKeys = true
+
+map <C-q> <Nop>
