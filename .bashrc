@@ -62,7 +62,7 @@ esac
 
 ####ALIAS####
 
-#My own cpp compiler
+#My own wrapper for the gcc compiler
 alias gppcompile="perl ~/Documents/PersonalProjects/GppWrapper/lib/GppCLI.pl"
 #Force rm interactive mode
 alias rm="rm -i"
@@ -72,6 +72,8 @@ alias afk="gnome-screensaver-command --lock"
 alias cdp="cd ~/Documents/PersonalProjects"
 #Start symfony server ONLY WORKS INSIDE A SYMFONY DIRECTORY
 alias symforun="php app/console server:run"
+#Always give ls in list form
+alias ls="ls -l --color=always"
 
 ####AWESOME BASH PROMPT####
 
