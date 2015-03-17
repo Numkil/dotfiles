@@ -35,7 +35,6 @@ mkcd(){
     mkdir -p "$*"
     cd "$*"
 }
-export -f mkcd
 
 # Convert all .mp3 files in a folder to .ogg files
 toogg(){
@@ -58,6 +57,28 @@ case $* in
     vim* ) shift 1; command sudo -E vim "$@" ;;
 * ) command sudo "$@" ;;
 esac
+}
+
+# Hide difficult logic behind extracting compressed folders
+# Use the file extension to determine which command to use
+extract () {
+if [ -f $1 ] ; then
+  case $1 in
+    *.tar.gz)  tar xzf $1;;
+    *.gz)      gunzip $1;;
+    *.tar)     tar xf $1;;
+    *.tgz)     tar xzf $1;;
+    *.tar.bz2) tar xjf $1;;
+    *.bz2)     bunzip2 $1;;
+    *.rar)     rar x $1;;
+    *.tbz2)    tar xjf $1;;
+    *.zip)     unzip $1;;
+    *.Z)       uncompress $1;;
+    *)         echo "can't extract from $1";;
+  esac
+else
+  echo "no file called $1"
+fi
 }
 
 ####ALIAS####
