@@ -83,8 +83,6 @@ fi
 
 ####ALIAS####
 
-#My own wrapper for the gcc compiler
-alias gppcompile="perl ~/Documents/PersonalProjects/GppWrapper/lib/GppCLI.pl"
 #Force rm interactive mode
 alias rm="rm -i"
 #Lock the screen
