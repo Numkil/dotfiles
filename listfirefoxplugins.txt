@@ -1,0 +1,18 @@
+Maybe using this I can finally remember which plugins I had installed on a new
+install
+#extensions
+blender
+firebug
+greasemonkey
+hide caption titlebar plus
+hidescrollbars
+https-everywhere
+kotnet login
+open with
+shumway
+tree style tab
+vimperator
+youtube center
+microblock
+#userscripts
+appchan x
