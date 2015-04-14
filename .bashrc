@@ -17,7 +17,7 @@ if [[ -e ~/.ssh/known_hosts ]]; then
 fi
 
 # Make vim the default editor.
-export EDITOR='vim';
+export EDITOR='nvim';
 
 # Always use UTF8
 export LANG='en_US.UTF-8';
@@ -55,6 +55,7 @@ haste() {
 function sudo() {
 case $* in
     vim* ) shift 1; command sudo -E vim "$@" ;;
+    nvim* ) shift 1; command sudo -E nvim "$@" ;;
 * ) command sudo "$@" ;;
 esac
 }
@@ -93,6 +94,8 @@ alias cdp="cd ~/Documents/PersonalProjects"
 alias symforun="php app/console server:run"
 #Always give ls in list form
 alias ls="ls -l --color=always"
+#Force nvim instead of vim
+alias vim="nvim"
 
 ####AWESOME BASH PROMPT####
 
