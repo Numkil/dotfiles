@@ -3,12 +3,12 @@ let g:syntastic_c_compiler_options = '-Wall -Wextra'
 let g:syntastic_cpp_check_header = 1
 "let g:syntastic_cpp_compiler_options = '-I/usr/lib64/qt4/mkspecs/linux-g++ -I. -I/usr/include/QtNetwork -I/usr/include/QtCore -I/usr/include/QtGui -I/usr/include -std=c++11'
 let g:syntastic_cpp_compiler_options = '-lcurses -lglut -lm -lGL -lGLU -Wall -Wextra -std=c++11'
-let g:syntastic_java_javac_classpath = "/home/Numkil/Documents/Distributed\ Applications/web_demo/target/classes"
 let g:syntastic_enable_perl_checker = 1
 let g:syntastic_perl_checkers = ['perl', 'perlcritic']
+let g:syntastic_vim_checkers = ['vint']
 let g:syntastic_python_checkers = ['flake8']
 let g:syntastic_twig_checkers = ['twiglint']
 let g:syntastic_mode_map = {
     \ 'mode': 'passive',
     \ 'active_filetypes':
-        \ ['js', 'cpp', 'php', 'perl', 'python', 'twig', 'c'] }
+        \ ['js', 'cpp', 'php', 'perl', 'python', 'twig', 'c', 'vim'] }
