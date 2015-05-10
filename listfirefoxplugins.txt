@@ -8,11 +8,10 @@ hide caption titlebar plus
 hidescrollbars
 https-everywhere
 kotnet login
-open with
 shumway
 tree style tab
 vimperator
-youtube center
-microblock
+youtube center developer build
+ublock origin
 #userscripts
 appchan x
