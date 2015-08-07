@@ -90,10 +90,12 @@ alias rm="rm -i"
 alias afk="gnome-screensaver-command --lock"
 #Shortcut for my own personal projects folder
 alias cdp="cd ~/Documents/PersonalProjects"
+#Shortcut for my work folder
+alias cdw="cd ~/Documents/ACA"
 #Start symfony server ONLY WORKS INSIDE A SYMFONY DIRECTORY
 alias symforun="php app/console server:run"
 #Always give ls in list form
-alias ls="ls -l --color=always"
+alias ls="ls -l"
 #Force nvim instead of vim
 alias vim="nvim"
 

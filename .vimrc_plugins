@@ -1,5 +1,0 @@
-    " Support syntax for .php.twig files
-    NeoBundle 'evidens/vim-twig'
-
-    " Test maybe more functional yaml highlighting
-    NeoBundle 'stephpy/vim-yaml'
