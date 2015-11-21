@@ -2,13 +2,16 @@
 # Video
 
 # Use opengl-hq with the following personal settings. This should be quite optimal for me
-vo=opengl-hq:pbo:dither-depth=no:scaler-resizes-only:interpolation
+vo=opengl-hq:pbo:dither-depth=no:scaler-resizes-only:interpolation:scale=haasnsoft
 display-fps=60      # Set the maximum assumed display FPS used with --framedrop
 vf=gradfun          # Enable ffmpegs's debanding filter
 framedrop=vo        # Drop late frames on video output, but still decode and filter them.
+video-sync=display-resample
 
 # Cache
-cache=20000         # Default cache of 20 mBytes
+cache=auto 	    # Newer builds of mpv seem to have some troubles with a fixed cache
+cache-initial=1000
+cache-seek-min=2000
 
 # Audio
 ao=pulse,alsa       # Prefer pulse then alsa
@@ -25,7 +28,7 @@ slang=en,eng,English                     # Prefered subtitle and audio languages
 alang=Korean,kor,Japanese,jpn,jp,English,eng,en
 
 # Subtitles look
-sub-text-font="Deja Vu Sans"
+sub-text-font="DejaVu Sans"
 sub-text-font-size=42
 sub-text-margin-y=36
 sub-text-color="#ffffffff"
@@ -48,9 +51,11 @@ osd-border-color='#ff262626'
 osd-shadow-color='#33000000'
 osd-shadow-offset=1
 
+# Streaming
+ytdl=yes
+ytdl-format=(bestvideo[ext=webm]/bestvideo[height>720]/bestvideo[fps=60])[tbr<13000]+(bestaudio[acodec=opus]/bestaudio[ext=webm]/bestaudio)/best
+
 # Misc
-ytdl=yes                                 # Force ytdl
-ytdl-format=bestvideo+bestaudio/best     # Always use 1080p+ or 60fps
 audio-display=no                         # Disable display of video when playing music files
 
 # Extensions
