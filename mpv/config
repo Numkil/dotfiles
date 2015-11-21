@@ -39,7 +39,7 @@ sub-text-shadow-color="#33000000"
 sub-text-spacing=0.3
 
 # Make progress-bar minimal af
-osd-font="Deja Vu Sans"
+osd-font="DejaVu Sans"
 osd-font-size=42
 osd-bar-h=2
 osd-bar-w=90
