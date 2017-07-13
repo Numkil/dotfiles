@@ -2,11 +2,15 @@
 # Video
 
 # Use opengl-hq with the following personal settings. This should be quite optimal for me
-vo=opengl-hq:pbo:dither-depth=no:scaler-resizes-only:interpolation:scale=haasnsoft
-display-fps=60      # Set the maximum assumed display FPS used with --framedrop
-vf=gradfun          # Enable ffmpegs's debanding filter
-framedrop=vo        # Drop late frames on video output, but still decode and filter them.
+profile=opengl-hq
+scale=ewa_lanczossharp
+cscale=ewa_lanczossoft
+scaler-resizes-only
+interpolation=yes
+tscale=oversample
 video-sync=display-resample
+blend-subtitles=yes
+display-fps=60      # Set the maximum assumed display FPS used with --framedrop
 
 # Cache
 cache=auto 	    # Newer builds of mpv seem to have some troubles with a fixed cache
@@ -23,20 +27,20 @@ gapless-audio       # Reserve the audio device for all playbacks
 # Subtitles behavior and feel
 sub-auto=fuzzy                           # Load all subtitles, also in [sub-paths]
 demuxer-mkv-subtitle-preroll             # See if subtitles that overlap can be placed on top of each other
-ass-force-style=Kerning=yes              # Enable kerning because pretty
+sub-ass-force-style=Kerning=yes              # Enable kerning because pretty
 slang=en,eng,English                     # Prefered subtitle and audio languages here
 alang=Korean,kor,Japanese,jpn,jp,English,eng,en
 
 # Subtitles look
-sub-text-font="DejaVu Sans"
-sub-text-font-size=42
-sub-text-margin-y=36
-sub-text-color="#ffffffff"
-sub-text-border-color="#ff262626"
-sub-text-border-size=1.5
-sub-text-shadow-offset=1
-sub-text-shadow-color="#33000000"
-sub-text-spacing=0.3
+sub-font="DejaVu Sans"
+sub-font-size=42
+sub-margin-y=36
+sub-color="#ffffffff"
+sub-border-color="#ff262626"
+sub-border-size=1.5
+sub-shadow-offset=1
+sub-shadow-color="#33000000"
+sub-spacing=0.3
 
 # Make progress-bar minimal af
 osd-font="DejaVu Sans"
