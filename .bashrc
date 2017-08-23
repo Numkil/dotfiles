@@ -45,7 +45,7 @@ vimlast(){
     if [ -d $1 ] ; then
         SOURCE_DIR=`echo $1 | sed 's/^\/\(.*\)\/$/\1/g'`
         LAST_MODIFIED_FILE=`ls -t ${SOURCE_DIR}| head -1`
-        vim $SOURCE_DIR/$LAST_MODIFIED_FILE
+        nvim $SOURCE_DIR/$LAST_MODIFIED_FILE
     else
         echo "no directory called $1"
     fi
