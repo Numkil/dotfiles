@@ -1,2 +1,3 @@
 NeoBundle 'evidens/vim-twig'
 NeoBundle 'docteurklein/php-getter-setter.vim'
+NeoBundle 'lvht/phpcd.vim'
