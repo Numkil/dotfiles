@@ -15,6 +15,3 @@ let g:syntastic_mode_map = {
     \ 'active_filetypes':
         \ ['javascript', 'cpp', 'php', 'perl', 'python', 'c', 'vim', 'twig'] }
 set background=light
-
-let g:deoplete#ignore_sources = get(g:, 'deoplete#ignore_sources', {})
-let g:deoplete#ignore_sources.php = ['omni']
