@@ -1,15 +1,6 @@
 ####General definitions####
 # Autocomplete using tab
-if [ -f /etc/bash_completion ]; then
-    source /etc/bash_completion
-    complete -W "+%H:%M +%d.%m.%y_%H:%M" date
-    bind "set completion-ignore-case on"
-fi
-
-# SSH auto-completion based on entries in known_hosts.
-if [[ -e ~/.ssh/known_hosts ]]; then
-    complete -o default -W "$(cat ~/.ssh/known_hosts | sed 's/[, ].*//' | sort | uniq | grep -v '[0-9]')" ssh scp sftp
-fi
+[[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
 
 # Make vim the default editor.
 export EDITOR='nvim';
@@ -18,6 +9,7 @@ export EDITOR='nvim';
 export LANG='en_US.UTF-8';
 
 # History, ignore duplicates, append
+export SHELL_SESSION_HISTORY=0
 export HISTSIZE="10000"
 export HISTFILESIZE="10000"
 export HISTCONTROL=$HISTCONTROL${HISTCONTROL+:}ignoredups
@@ -88,10 +80,8 @@ extract () {
 alias rm="rm -i"
 #Lock the screen
 alias afk="gnome-screensaver-command --lock"
-#Shortcut for my own personal projects folder
-alias cdp="cd ~/Documents/PersonalProjects"
 #Shortcut for my work folder
-alias cdw="cd /home/projects"
+alias cdw="cd ~/Documents/projects"
 #Start symfony server ONLY WORKS INSIDE A SYMFONY DIRECTORY
 alias symforun="php app/console server:run"
 #Always give ls in list form
@@ -229,4 +219,3 @@ PERL_MM_OPT="INSTALL_BASE=/Users/kevinj/perl5"; export PERL_MM_OPT;
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
