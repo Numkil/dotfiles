@@ -1,4 +1,2 @@
-call dein#add('evidens/vim-twig')
-call dein#add('docteurklein/php-getter-setter.vim')
 call dein#add('phpactor/phpactor', {'build': 'composer install'})
 call dein#add('kristijanhusak/deoplete-phpactor')
