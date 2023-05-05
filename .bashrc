@@ -1,3 +1,5 @@
+eval $(/opt/homebrew/bin/brew shellenv)
+
 ####General definitions####
 # Autocomplete using tab
 [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
@@ -79,11 +81,9 @@ extract () {
 #Force rm interactive mode
 alias rm="rm -i"
 #Lock the screen
-alias afk="gnome-screensaver-command --lock"
+alias afk="osascript -e 'tell application \"System Events\" to keystroke \"q\" using {command down,control down}'"
 #Shortcut for my work folder
 alias cdw="cd ~/Documents/projects"
-#Start symfony server ONLY WORKS INSIDE A SYMFONY DIRECTORY
-alias symforun="php app/console server:run"
 #Always give ls in list form
 alias lsa="ls -larth"
 #Force nvim instead of vim
@@ -192,7 +192,7 @@ function prompt_command() {
     # http://twitter.com/cowboy/status/150254030654939137
     PS1=""
     # path: [user@host:path]
-    PS1="$PS1$c1[$c0\u$c1@$c0\h$c1:$c0\w$c1]$c9"
+    PS1="$PS1$c1[$c0\u$c1:$c0\w$c1]$c9"
     PS1="$PS1\n"
     # svn: [repo:lastchanged]
     PS1="$PS1$(prompt_svn)"
@@ -210,12 +210,3 @@ function prompt_command() {
 PROMPT_COMMAND="prompt_command"
 
 eval $(thefuck --alias)
-
-PATH="/Users/kevinj/perl5/bin${PATH:+:${PATH}}"; export PATH;
-PERL5LIB="/Users/kevinj/perl5/lib/perl5${PERL5LIB:+:${PERL5LIB}}"; export PERL5LIB;
-PERL_LOCAL_LIB_ROOT="/Users/kevinj/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"; export PERL_LOCAL_LIB_ROOT;
-PERL_MB_OPT="--install_base \"/Users/kevinj/perl5\""; export PERL_MB_OPT;
-PERL_MM_OPT="INSTALL_BASE=/Users/kevinj/perl5"; export PERL_MM_OPT;
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
