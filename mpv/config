@@ -10,17 +10,10 @@ interpolation=yes
 tscale=oversample
 video-sync=display-resample
 blend-subtitles=yes
-display-fps=60      # Set the maximum assumed display FPS used with --framedrop
-
-# Cache
-cache=auto 	    # Newer builds of mpv seem to have some troubles with a fixed cache
-cache-initial=1000
-cache-seek-min=2000
+override-display-fps=60      # Set the maximum assumed display FPS used with --framedrop
 
 # Audio
-ao=pulse,alsa       # Prefer pulse then alsa
 audio-channels=2    # Stereo sound
-af=drc              # Use Dynamic Range Compression filter on audio
 af=scaletempo       # When changing playback speed, keep the pitch
 gapless-audio       # Reserve the audio device for all playbacks
 
