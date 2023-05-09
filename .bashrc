@@ -20,13 +20,13 @@ shopt -s histappend
 ####FUNCTION#####
 
 # mkdir, cd into it
-mkcd(){
+function mkcd(){
     mkdir -p "$*"
     cd "$*"
 }
 
 # Convert all .mp3 files in a folder to .ogg files
-toogg(){
+function toogg(){
     for fic in *.mp3
     do
         ffmpeg -i "$fic" -acodec libvorbis -aq 60 -vsync 2 "${fic%.mp3}.ogg";
@@ -35,14 +35,25 @@ toogg(){
 }
 
 # Open last modified file in directory
-vimlast(){
+function vimlast(){
     if [ -d $1 ] ; then
         SOURCE_DIR=`echo $1 | sed 's/^\/\(.*\)\/$/\1/g'`
-        LAST_MODIFIED_FILE=`ls -t ${SOURCE_DIR}| head -1`
+        LAST_MODIFIED_FILE=`ls -ta ${SOURCE_DIR}| head -1`
         nvim $SOURCE_DIR/$LAST_MODIFIED_FILE
     else
         echo "no directory called $1"
     fi
+}
+
+# Open last modified file in directory
+function importdb(){
+    SOURCE_DIR=${PWD##*/}
+    SOURCE_DIR=${SOURCE_DIR:-/}
+
+    FILE=`ls ~/.databases/mysql/${SOURCE_DIR}| head -1`
+    DB_PATH=~/.databases/mysql/$SOURCE_DIR/$FILE
+    echo "Importing database $DB_PATH"
+    ddev import-db --src=$DB_PATH
 }
 
 # Preserve environment when doing "sudo vim []"
