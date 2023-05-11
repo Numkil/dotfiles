@@ -57,12 +57,12 @@ function importdb(){
 }
 
 # download .env file to local host
-function getprodenv(){
+function fetchfromlive(){
     SOURCE_DIR=${PWD##*/}
     SOURCE_DIR=${SOURCE_DIR:-/}
 
-    echo "Downloading .env file $SOURCE_DIR"
-    scp ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/.env .env
+    echo "Downloading $1 from $SOURCE_DIR"
+    scp ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/$1 $1
 }
 
 # Preserve environment when doing "sudo vim []"
@@ -108,6 +108,9 @@ alias cdw="cd ~/Documents/projects"
 alias lsa="ls -larth"
 #Force nvim instead of vim
 alias vim="nvim"
+#shortcuts custom commands
+alias ffl="fetchfromlive"
+alias dbi="importdb"
 
 ####AWESOME BASH PROMPT####
 
