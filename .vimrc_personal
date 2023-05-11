@@ -14,3 +14,4 @@ let g:syntastic_mode_map = {
     \ 'mode': 'passive',
     \ 'active_filetypes':
         \ ['javascript', 'cpp', 'php', 'perl', 'python', 'c', 'vim', 'twig'] }
+set background=light

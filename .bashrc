@@ -45,7 +45,7 @@ function vimlast(){
     fi
 }
 
-# Open last modified file in directory
+# import db from designated folder into docker container
 function importdb(){
     SOURCE_DIR=${PWD##*/}
     SOURCE_DIR=${SOURCE_DIR:-/}
@@ -54,6 +54,15 @@ function importdb(){
     DB_PATH=~/.databases/mysql/$SOURCE_DIR/$FILE
     echo "Importing database $DB_PATH"
     ddev import-db --src=$DB_PATH
+}
+
+# download .env file to local host
+function getprodenv(){
+    SOURCE_DIR=${PWD##*/}
+    SOURCE_DIR=${SOURCE_DIR:-/}
+
+    echo "Downloading .env file $SOURCE_DIR"
+    scp ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/.env .env
 }
 
 # Preserve environment when doing "sudo vim []"
