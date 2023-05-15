@@ -76,7 +76,7 @@ function sudo() {
 
 # Hide difficult logic behind extracting compressed folders
 # Use the file extension to determine which command to use
-extract () {
+function extract () {
     if [ -f $1 ] ; then
         case $1 in
             *.tar.gz)  tar xzf $1;;
@@ -100,6 +100,8 @@ extract () {
 
 #Force rm interactive mode
 alias rm="rm -i"
+#Force rg case insensitive search
+alias rg="rg -i"
 #Lock the screen
 alias afk="osascript -e 'tell application \"System Events\" to keystroke \"q\" using {command down,control down}'"
 #Shortcut for my work folder
