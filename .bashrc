@@ -1,6 +1,6 @@
+####General definitions####
 eval $(/opt/homebrew/bin/brew shellenv)
 
-####General definitions####
 # Autocomplete using tab
 [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
 
@@ -16,6 +16,9 @@ export HISTSIZE="10000"
 export HISTFILESIZE="10000"
 export HISTCONTROL=$HISTCONTROL${HISTCONTROL+:}ignoredups
 shopt -s histappend
+
+export PATH="$HOME/.composer/vendor/bin:$PATH"
+eval $(thefuck --alias)
 
 ####FUNCTION#####
 
@@ -113,6 +116,7 @@ alias vim="nvim"
 #shortcuts custom commands
 alias ffl="fetchfromlive"
 alias dbi="importdb"
+alias redo="ddev stop -aRO && ddev start && dbi"
 
 ####AWESOME BASH PROMPT####
 
@@ -233,5 +237,3 @@ function prompt_command() {
 }
 
 PROMPT_COMMAND="prompt_command"
-
-eval $(thefuck --alias)

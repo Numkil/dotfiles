@@ -1,2 +1,0 @@
-call dein#add('phpactor/phpactor', {'build': 'composer install'})
-call dein#add('kristijanhusak/deoplete-phpactor')
