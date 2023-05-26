@@ -18,6 +18,11 @@ export HISTCONTROL=$HISTCONTROL${HISTCONTROL+:}ignoredups
 shopt -s histappend
 
 export PATH="$HOME/.composer/vendor/bin:$PATH"
+
+export NVM_DIR="$HOME/.nvm"
+  [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+
 eval $(thefuck --alias)
 
 ####FUNCTION#####
@@ -65,8 +70,47 @@ function fetchfromlive(){
     SOURCE_DIR=${SOURCE_DIR:-/}
 
     echo "Downloading $1 from $SOURCE_DIR"
-    scp ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/$1 $1
+    scp -r ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/$1 $1
 }
+
+# download .env file to local host
+function fetchfromlive(){
+    SOURCE_DIR=${PWD##*/}
+    SOURCE_DIR=${SOURCE_DIR:-/}
+
+    echo "Downloading $1 from $SOURCE_DIR"
+    scp -r ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/$1 $1
+}
+
+# ssh to the project without having to remember hostname
+function sshtolive(){
+    SOURCE_DIR=${PWD##*/}
+    SOURCE_DIR=${SOURCE_DIR:-/}
+
+    echo "Sshing to $SOURCE_DIR"
+    ssh ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be
+}
+
+# basics of setting up a project
+function setupproject(){
+    if [ -n $1 ]; then
+        echo "Cloning project"
+        git clone git@statik.git.beanstalkapp.com:/statik/$1.git
+        cd $1
+        echo "Moving database file from downloads to dedicated folder"
+        mkdir -p ~/.databases/mysql/$1
+        mv ~/Downloads/com*.sql ~/.databases/mysql/$1/
+        echo "Fetching .env file"
+        fetchfromlive .env
+        echo "Spinning up project!"
+        ddev stop -aRO
+        ddev start
+        importdb
+    else
+        echo "no file called $1"
+    fi
+}
+
 
 # Preserve environment when doing "sudo vim []"
 function sudo() {
@@ -115,6 +159,7 @@ alias lsa="ls -larth"
 alias vim="nvim"
 #shortcuts custom commands
 alias ffl="fetchfromlive"
+alias sshl="sshtolive"
 alias dbi="importdb"
 alias redo="ddev stop -aRO && ddev start && dbi"
 
