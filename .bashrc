@@ -64,6 +64,17 @@ function importdb(){
     ddev import-db --src=$DB_PATH
 }
 
+# export db into designated folder from docker container
+function exportdb(){
+    SOURCE_DIR=${PWD##*/}
+    SOURCE_DIR=${SOURCE_DIR:-/}
+
+    FILE=`ls ~/.databases/mysql/${SOURCE_DIR}| head -1`
+    DB_PATH=~/.databases/mysql/$SOURCE_DIR/$FILE
+    echo "Exporting database to $DB_PATH"
+    ddev export-db --gzip=false --file=$DB_PATH
+}
+
 # download .env file to local host
 function fetchfromlive(){
     SOURCE_DIR=${PWD##*/}
@@ -106,11 +117,12 @@ function setupproject(){
         ddev stop -aRO
         ddev start
         importdb
+        echo "Installing vendor files"
+        ddev composer install
     else
-        echo "no file called $1"
+        echo "Provide at least one argument"
     fi
 }
-
 
 # Preserve environment when doing "sudo vim []"
 function sudo() {
@@ -161,6 +173,7 @@ alias vim="nvim"
 alias ffl="fetchfromlive"
 alias sshl="sshtolive"
 alias dbi="importdb"
+alias dbe="exportdb"
 alias redo="ddev stop -aRO && ddev start && dbi"
 
 ####AWESOME BASH PROMPT####
