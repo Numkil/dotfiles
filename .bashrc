@@ -84,15 +84,6 @@ function fetchfromlive(){
     scp -r ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/$1 $1
 }
 
-# download .env file to local host
-function fetchfromlive(){
-    SOURCE_DIR=${PWD##*/}
-    SOURCE_DIR=${SOURCE_DIR:-/}
-
-    echo "Downloading $1 from $SOURCE_DIR"
-    scp -r ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/$1 $1
-}
-
 # ssh to the project without having to remember hostname
 function sshtolive(){
     SOURCE_DIR=${PWD##*/}
