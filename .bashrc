@@ -81,7 +81,7 @@ function fetchfromlive(){
     SOURCE_DIR=${SOURCE_DIR:-/}
 
     echo "Downloading $1 from $SOURCE_DIR"
-    scp -r ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/$1 $1
+    scp -r ${SOURCE_DIR}livestatikbe@${SOURCE_DIR}.ssh.statik.be:/data/sites/web/${SOURCE_DIR}livestatikbe/subsites/${SOURCE_DIR}.live.statik.be/$1 $1
 }
 
 # ssh to the project without having to remember hostname
@@ -90,7 +90,7 @@ function sshtolive(){
     SOURCE_DIR=${SOURCE_DIR:-/}
 
     echo "Sshing to $SOURCE_DIR"
-    ssh ${SOURCE_DIR}livestatikbe@ssh.${SOURCE_DIR}.live.statik.be
+    ssh ${SOURCE_DIR}livestatikbe@${SOURCE_DIR}.ssh.statik.be
 }
 
 # basics of setting up a project
@@ -165,7 +165,8 @@ alias ffl="fetchfromlive"
 alias sshl="sshtolive"
 alias dbi="importdb"
 alias dbe="exportdb"
-alias redo="ddev stop -aRO && ddev start && dbi"
+alias user="ddev craft users/create --admin=1 --email=tje@tje.tje --password=FakePassword12!@ --interactive=0"
+alias redo="ddev stop -aRO && ddev start && dbi && user"
 
 ####AWESOME BASH PROMPT####
 
