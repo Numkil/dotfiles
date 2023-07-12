@@ -110,8 +110,6 @@ function setupproject(){
         importdb
         echo "Installing vendor files"
         ddev composer install
-        echo "Applying project-config"
-        ddev craft project-config/apply
     else
         echo "Provide at least one argument"
     fi
@@ -124,6 +122,7 @@ function release() {
     echo "Releasing version ${RELEASE_VERSION}"
 
     git checkout develop
+    git push origin develop
     git checkout -b ${RELEASE_VERSION}
     git checkout master
     git pull origin master
@@ -182,7 +181,7 @@ alias sshl="sshtolive"
 alias dbi="importdb"
 alias dbe="exportdb"
 alias user="ddev craft users/create --admin=1 --email=tje@tje.tje --password=FakePassword12!@ --interactive=0"
-alias redo="ddev stop -aRO && ddev start && dbi && user"
+alias redo="ddev stop -aRO && ddev start && dbi && user && ddev craft project-config/apply"
 
 ####AWESOME BASH PROMPT####
 
