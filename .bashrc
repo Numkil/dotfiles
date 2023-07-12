@@ -110,9 +110,25 @@ function setupproject(){
         importdb
         echo "Installing vendor files"
         ddev composer install
+        echo "Applying project-config"
+        ddev craft project-config/apply
     else
         echo "Provide at least one argument"
     fi
+}
+
+# release develop branch to master
+function release() {
+    RELEASE_VERSION="release/$(date +%Y%m%d%H%M)"
+
+    echo "Releasing version ${RELEASE_VERSION}"
+
+    git checkout develop
+    git checkout -b ${RELEASE_VERSION}
+    git checkout master
+    git pull origin master
+    git merge --no-ff ${RELEASE_VERSION}
+    git push origin master
 }
 
 # Preserve environment when doing "sudo vim []"
