@@ -171,8 +171,12 @@ alias rg="rg -i"
 alias afk="osascript -e 'tell application \"System Events\" to keystroke \"q\" using {command down,control down}'"
 #Shortcut for my work folder
 alias cdw="cd ~/Documents/projects"
-#Always give ls in list form
-alias lsa="ls -larth"
+#Prefer lsd binary over ls
+alias ls="lsd"
+#ls with more options
+alias lsa="lsd -larth"
+#ls in a full tree form!
+alias lst="lsd --tree"
 #Force nvim instead of vim
 alias vim="nvim"
 #shortcuts custom commands
