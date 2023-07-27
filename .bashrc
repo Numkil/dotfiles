@@ -61,7 +61,7 @@ function importdb(){
     FILE=`ls ~/.databases/mysql/${SOURCE_DIR}| head -1`
     DB_PATH=~/.databases/mysql/$SOURCE_DIR/$FILE
     echo "Importing database $DB_PATH"
-    ddev import-db --src=$DB_PATH
+    ddev import-db --file=$DB_PATH
 }
 
 # export db into designated folder from docker container
@@ -106,6 +106,7 @@ function setupproject(){
         fetchfromlive .env
         echo "Spinning up project!"
         ddev stop -aRO
+        ddev get ddev/ddev-phpmyadmin
         ddev start
         importdb
         echo "Installing vendor files"
@@ -133,7 +134,7 @@ function release() {
 # Preserve environment when doing "sudo vim []"
 function sudo() {
     case $* in
-        vim* ) shift 1; command sudo -E vim "$@" ;;
+        vim* ) shift 1; command sudo -E nvim "$@" ;;
         nvim* ) shift 1; command sudo -E nvim "$@" ;;
         * ) command sudo "$@" ;;
     esac
@@ -185,7 +186,7 @@ alias sshl="sshtolive"
 alias dbi="importdb"
 alias dbe="exportdb"
 alias user="ddev craft users/create --admin=1 --email=tje@tje.tje --password=FakePassword12!@ --interactive=0"
-alias redo="ddev stop -aRO && ddev start && dbi && user && ddev craft project-config/apply"
+alias redo="ddev stop -aRO && ddev get ddev/ddev-phpmyadmin && ddev start && dbi && ddev craft project-config/apply && user"
 
 ####AWESOME BASH PROMPT####
 
