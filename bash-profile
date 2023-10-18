@@ -15,24 +15,28 @@ export HISTFILESIZE="10000"
 export HISTCONTROL=$HISTCONTROL${HISTCONTROL+:}ignoredups
 shopt -s histappend
 
-# enter a few characters and press UpArrow/DownArrow
+# Enter a few characters and press UpArrow/DownArrow
 # to search backwards/forwards through the history
 if [[ ${SHELLOPTS} =~ (vi|emacs) ]]; then
   bind '"\e[A":history-search-backward'
   bind '"\e[B":history-search-forward'
 fi
 
-# Make sure composer and nvm available on path
+# Register compoer on path 
 export PATH="$HOME/.composer/vendor/bin:$PATH"
-export NVM_DIR="$HOME/.nvm"
-  [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
 
-#init homebrew if macos and determine correct bash completion script
+# Determine correct bash completion script
 bashCompletionScript="/etc/profile.d/bash_completion.sh"
 if [[ "${OSTYPE}" == 'darwin'* ]]; then
-  eval $(/opt/homebrew/bin/brew shellenv)
   bashCompletionScript="/opt/homebrew/etc/profile.d/bash_completion.sh"
+
+  # Register nvm on path
+  export NVM_DIR="$HOME/.nvm"
+    [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+    [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+
+  # Register brew on path
+  eval $(/opt/homebrew/bin/brew shellenv)
 fi
 
 # source thefuck command
