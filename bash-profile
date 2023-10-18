@@ -18,41 +18,48 @@ shopt -s histappend
 # Enter a few characters and press UpArrow/DownArrow
 # to search backwards/forwards through the history
 if [[ ${SHELLOPTS} =~ (vi|emacs) ]]; then
-  bind '"\e[A":history-search-backward'
-  bind '"\e[B":history-search-forward'
+    bind '"\e[A":history-search-backward'
+    bind '"\e[B":history-search-forward'
 fi
 
-# Register compoer on path 
+# Register composer on path
 export PATH="$HOME/.composer/vendor/bin:$PATH"
 
-# Determine correct bash completion script
-bashCompletionScript="/etc/profile.d/bash_completion.sh"
+# Set nvm directory
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+
+# Determine correct bash completion script and set some OS specific settings
 if [[ "${OSTYPE}" == 'darwin'* ]]; then
-  bashCompletionScript="/opt/homebrew/etc/profile.d/bash_completion.sh"
+    bashCompletionScript="/opt/homebrew/etc/profile.d/bash_completion.sh"
 
-  # Register nvm on path
-  export NVM_DIR="$HOME/.nvm"
-    [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-    [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+    # Register nvm on path
+    [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && source "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+    [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && source "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
 
-  # Register brew on path
-  eval $(/opt/homebrew/bin/brew shellenv)
+    # Register brew on path
+    eval $(/opt/homebrew/bin/brew shellenv)
+else
+    bashCompletionScript="/etc/profile.d/bash_completion.sh"
+
+    # Register nvm on path
+    [[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+    [[ -s "$NVM_DIR/bash_completion" ]] && source "$NVM_DIR/bash_completion"
 fi
 
 # source thefuck command
 eval $(thefuck --alias)
 
 # Source our custom bash files and other usefull scripts
-echo "Initializing Merel's bash setup. Check that all expected files are being sourced!" 
+echo "Initializing Merel's bash setup. Check that all expected files are being sourced!"
 files=(
-  "${bashCompletionScript}"
-  "${HOME}/bash-git-completion.sh"
-  "${HOME}/bash-ssh-completion.sh"
-  "${HOME}/bash-functions.sh"
-  "${HOME}/bash-aliases.sh"
-  "${HOME}/bash-prompt.sh"
+    "${bashCompletionScript}"
+    "${HOME}/bash-git-completion.sh"
+    "${HOME}/bash-ssh-completion.sh"
+    "${HOME}/bash-functions.sh"
+    "${HOME}/bash-aliases.sh"
+    "${HOME}/bash-prompt.sh"
 )
 for file in "${files[@]}"; do
-  [ -r "$file" ] && echo "sourcing $file" && source "$file"
+    [ -r "$file" ] && echo "sourcing $file" && source "$file"
 done
 unset file

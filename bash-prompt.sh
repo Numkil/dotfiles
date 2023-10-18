@@ -10,7 +10,7 @@ fi
 set_prompts() {
 
     local black="" blue="" bold="" cyan="" green="" orange="" \
-          purple="" red="" reset="" white="" yellow=""
+        purple="" red="" reset="" white="" yellow=""
 
     local dateCmd=""
 
