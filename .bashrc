@@ -1,8 +1,20 @@
 ####General definitions####
+#init homebrew
 eval $(/opt/homebrew/bin/brew shellenv)
 
 # Autocomplete using tab
-[[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
+[[ -r "/opt/homebrew/etc/profile.d/bash_completion.sh" ]] && . "/opt/homebrew/etc/profile.d/bash_completion.sh"
+# Autocomplete git
+source ~/.git-completion.bash
+
+# Make sure composer and nvm available on path
+export PATH="$HOME/.composer/vendor/bin:$PATH"
+export NVM_DIR="$HOME/.nvm"
+  [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+
+# source thefuck command
+eval $(thefuck --alias)
 
 # Make vim the default editor.
 export EDITOR='nvim';
@@ -16,14 +28,6 @@ export HISTSIZE="10000"
 export HISTFILESIZE="10000"
 export HISTCONTROL=$HISTCONTROL${HISTCONTROL+:}ignoredups
 shopt -s histappend
-
-export PATH="$HOME/.composer/vendor/bin:$PATH"
-
-export NVM_DIR="$HOME/.nvm"
-  [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
-
-eval $(thefuck --alias)
 
 ####FUNCTION#####
 
@@ -123,6 +127,7 @@ function release() {
     echo "Releasing version ${RELEASE_VERSION}"
 
     git checkout develop
+    git pull origin develop
     git push origin develop
     git checkout -b ${RELEASE_VERSION}
     git checkout master
@@ -186,7 +191,7 @@ alias sshl="sshtolive"
 alias dbi="importdb"
 alias dbe="exportdb"
 alias user="ddev craft users/create --admin=1 --email=tje@tje.tje --password=FakePassword12!@ --interactive=0"
-alias redo="ddev stop -aRO && ddev get ddev/ddev-phpmyadmin && ddev start && dbi && ddev craft project-config/apply && user"
+alias redo="ddev stop -aRO && ddev start && dbi && ddev craft up && user"
 
 ####AWESOME BASH PROMPT####
 
