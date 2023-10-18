@@ -1,4 +1,8 @@
-cp -f ./.bash_profile ~/.bash_profile
+if [[ "${OSTYPE}" == 'darwin'* ]]; then
+  cp -f ./.bash_profile ~/.bash_profile
+else
+  cp -f ./.bash_profile ~/.bashrc
+fi
 cp -f ./bash-git-completion.sh ~/bash-git-completion.sh
 cp -f ./bash-ssh-completion.sh ~/bash-ssh-completion.sh
 cp -f ./bash-functions.sh ~/bash-functions.sh

@@ -18,8 +18,8 @@ shopt -s histappend
 # enter a few characters and press UpArrow/DownArrow
 # to search backwards/forwards through the history
 if [[ ${SHELLOPTS} =~ (vi|emacs) ]]; then
-	bind '"\e[A":history-search-backward'
-	bind '"\e[B":history-search-forward'
+  bind '"\e[A":history-search-backward'
+  bind '"\e[B":history-search-forward'
 fi
 
 # Make sure composer and nvm available on path
@@ -28,8 +28,12 @@ export NVM_DIR="$HOME/.nvm"
   [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
   [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
 
-#init homebrew
-eval $(/opt/homebrew/bin/brew shellenv)
+#init homebrew if macos and determine correct bash completion script
+bashCompletionScript="/etc/profile.d/bash_completion.sh"
+if [[ "${OSTYPE}" == 'darwin'* ]]; then
+  eval $(/opt/homebrew/bin/brew shellenv)
+  bashCompletionScript="/opt/homebrew/etc/profile.d/bash_completion.sh"
+fi
 
 # source thefuck command
 eval $(thefuck --alias)
@@ -37,7 +41,7 @@ eval $(thefuck --alias)
 # Source our custom bash files and other usefull scripts
 echo "Initializing Merel's bash setup. Check that all expected files are being sourced!" 
 files=(
-  "/opt/homebrew/etc/profile.d/bash_completion.sh"
+  "${bashCompletionScript}"
   "${HOME}/bash-git-completion.sh"
   "${HOME}/bash-ssh-completion.sh"
   "${HOME}/bash-functions.sh"
@@ -45,6 +49,6 @@ files=(
   "${HOME}/bash-prompt.sh"
 )
 for file in "${files[@]}"; do
-    [ -r "$file" ] && echo "sourcing $file" && source "$file"
+  [ -r "$file" ] && echo "sourcing $file" && source "$file"
 done
 unset file
