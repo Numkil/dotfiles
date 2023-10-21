@@ -1,4 +1,5 @@
-####General definitions####
+#### INITIALIZING FILE ####
+
 # Make vim the default editor.
 export EDITOR='nvim';
 
@@ -53,11 +54,12 @@ eval $(thefuck --alias)
 echo "Initializing Merel's bash setup. Check that all expected files are being sourced!"
 files=(
     "${bashCompletionScript}"
-    "${HOME}/bash-git-completion.sh"
-    "${HOME}/bash-ssh-completion.sh"
-    "${HOME}/bash-functions.sh"
-    "${HOME}/bash-aliases.sh"
-    "${HOME}/bash-prompt.sh"
+    "${HOME}/.git-completion.sh"
+    "${HOME}/.ssh-completion.sh"
+    "${HOME}/.sudo.sh"
+    "${HOME}/.helper-functions.sh"
+    "${HOME}/.aliases.sh"
+    "${HOME}/.prompt.sh"
 )
 for file in "${files[@]}"; do
     [ -r "$file" ] && echo "sourcing $file" && source "$file"

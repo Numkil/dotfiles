@@ -1,4 +1,13 @@
-####FUNCTION#####
+####FUNCTIONS#####
+
+# go straight to project folder or into a project
+function cdw(){
+    if [ -n $1 ]; then
+        cd ~/Documents/projects/$1
+    else
+        cd ~/Documents/projects
+    fi
+}
 
 # mkdir, cd into it
 function mkcd(){
@@ -105,15 +114,6 @@ function release() {
     git push origin master
 }
 
-# Preserve environment when doing "sudo vim []"
-function sudo() {
-    case $* in
-        vim* ) shift 1; command sudo -E nvim "$@" ;;
-        nvim* ) shift 1; command sudo -E nvim "$@" ;;
-        * ) command sudo "$@" ;;
-    esac
-}
-
 # Hide difficult logic behind extracting compressed folders
 # Use the file extension to determine which command to use
 function extract () {
@@ -129,7 +129,8 @@ function extract () {
             *.tbz2)    tar xjf $1 ;;
             *.zip)     unzip $1 ;;
             *.Z)       uncompress $1 ;;
-            *)         echo "can't extract from $1" ;;
+            *.7z)      7za x $1 ;;
+            *)         echo "'$1' cannot be extracted via extract" >&2;;
         esac
     else
         echo "no file called $1"

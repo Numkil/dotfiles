@@ -1,12 +1,13 @@
 if [[ "${OSTYPE}" == 'darwin'* ]]; then
-  cp -f ./bash-profile ~/.bash_profile
+  cp -f ./profile.sh ~/.bash_profile
 else
-  cp -f ./bash-profile ~/.bashrc
+  cp -f ./profile.sh ~/.bashrc
 fi
-cp -f ./bash-git-completion.sh ~/bash-git-completion.sh
-cp -f ./bash-ssh-completion.sh ~/bash-ssh-completion.sh
-cp -f ./bash-functions.sh ~/bash-functions.sh
-cp -f ./bash-aliases.sh ~/bash-aliases.sh
-cp -f ./bash-prompt.sh ~/bash-prompt.sh
+cp -f ./git-completion.sh ~/.git-completion.sh
+cp -f ./ssh-completion.sh ~/.ssh-completion.sh
+cp -f ./helper-functions.sh ~/.helper-functions.sh
+cp -f ./aliases.sh ~/.aliases.sh
+cp -f ./prompt.sh ~/.prompt.sh
+cp -f ./sudo.sh ~/.sudo.sh
 
 echo "If no errors were reported, you can now run 'source ~/.bash_profile' to load the new settings."

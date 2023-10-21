@@ -6,8 +6,6 @@ alias rm="rm -i"
 alias rg="rg -i"
 #Lock the screen
 alias afk="osascript -e 'tell application \"System Events\" to keystroke \"q\" using {command down,control down}'"
-#Shortcut for my work folder
-alias cdw="cd ~/Documents/projects"
 #Prefer lsd binary over ls
 alias ls="lsd"
 #ls with more options
