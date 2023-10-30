@@ -1,0 +1,44 @@
+format = """
+[░▒▓](#a3aed2)\
+[](bg:#268bd2 fg:#a3aed2)\
+$directory\
+[](fg:#268db2 bg:#CB4B16)\
+$git_branch\
+$git_status\
+[](fg:#CB4B16 bg:#859900)\
+$nodejs\
+[ ](fg:#859900)\
+$character"""
+
+[directory]
+style = "fg:#EEE8D5 bg:#268db2"
+format = "[ $path ]($style)"
+truncation_length = 3
+truncation_symbol = "…/"
+
+[directory.substitutions]
+"Documents" = "󰈙 "
+"Downloads" = " "
+"Music" = " "
+"Pictures" = " "
+
+[git_branch]
+symbol = ""
+style = "bg:#CB4B16"
+format = '[[ $symbol $branch ](fg:#EEE8D5 bg:#CB4B16)]($style)'
+
+[git_status]
+style = "bg:#CB4B16"
+format = '[[($all_status$ahead_behind )](fg:#EEE8D5 bg:#CB4B16)]($style)'
+
+[nodejs]
+symbol = "󰎙"
+style = "bg:#859900"
+format = '[[ $symbol ($version) ](fg:#EEE8D5 bg:#859900)]($style)'
+
+[character]
+success_symbol = '[❯](bold green) '
+error_symbol = '[❯](bold red) '
+
+[line_break]
+disabled = true 
