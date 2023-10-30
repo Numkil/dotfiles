@@ -35,22 +35,14 @@ if [[ "${OSTYPE}" == 'darwin'* ]]; then
     eval $(/opt/homebrew/bin/brew shellenv)
 
     HOMEBREW_PREFIX="$(brew --prefix)"
-    if [[ -r "${HOMEBREW_PREFIX}/etc/profile.d/bash_completion.sh" ]]
-    then
-	source "${HOMEBREW_PREFIX}/etc/profile.d/bash_completion.sh"
-    else
-	for COMPLETION in "${HOMEBREW_PREFIX}/etc/bash_completion.d/"*
-	    do
-		[[ -r "${COMPLETION}" ]] && source "${COMPLETION}"
-	    done
-    fi
+    completionfile="${HOMEBREW_PREFIX}/etc/profile.d/bash_completion.sh"
 
     # Register nvm on path
     [ -s "${HOMEBREW_PREFIX}/opt/nvm/nvm.sh" ] && source "${HOMEBREW_PREFIX}/opt/nvm/nvm.sh"  # This loads nvm
     [ -s "${HOMEBREW_PREFIX}/opt/nvm/etc/bash_completion.d/nvm" ] && source "${HOMEBREW_PREFIX}/opt/nvm/etc/bash_completion.d/nvm"
 
 else
-    source "/etc/profile.d/bash_completion.sh"
+    completionfile="/etc/profile.d/bash_completion.sh"
 
     # Register nvm on path
     [[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
@@ -63,6 +55,7 @@ eval $(thefuck --alias)
 # Source our custom bash files and other usefull scripts
 echo "Initializing Merel's bash setup. Check that all expected files are being sourced!"
 files=(
+    "${completionfile}"
     "${HOME}/.git-completion.sh"
     "${HOME}/.ssh-completion.sh"
     "${HOME}/.sudo.sh"
