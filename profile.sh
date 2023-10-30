@@ -16,11 +16,11 @@ export HISTFILESIZE="10000"
 export HISTCONTROL=$HISTCONTROL${HISTCONTROL+:}ignoredups
 shopt -s histappend
 
-# Enter a few characters and press UpArrow/DownArrow
-# to search backwards/forwards through the history
-if [[ ${SHELLOPTS} =~ (vi|emacs) ]]; then
-    bind '"\e[A":history-search-backward'
-    bind '"\e[B":history-search-forward'
+# Set the colours to use in prompt
+if [[ $COLORTERM = gnome-* && $TERM = xterm ]] && infocmp gnome-256color >/dev/null 2>&1; then
+    export TERM=gnome-256color
+elif infocmp xterm-256color >/dev/null 2>&1; then
+    export TERM=xterm-256color
 fi
 
 # Register composer on path
@@ -49,7 +49,7 @@ else
     [[ -s "$NVM_DIR/bash_completion" ]] && source "$NVM_DIR/bash_completion"
 fi
 
-# source thefuck command
+# Source thefuck command
 eval $(thefuck --alias)
 
 # Source our custom bash files and other usefull scripts
@@ -61,9 +61,11 @@ files=(
     "${HOME}/.sudo.sh"
     "${HOME}/.helper-functions.sh"
     "${HOME}/.aliases.sh"
-    "${HOME}/.prompt.sh"
 )
 for file in "${files[@]}"; do
     [ -r "$file" ] && echo "sourcing $file" && source "$file"
 done
 unset file
+
+# Launching starship
+eval "$(starship init bash)"

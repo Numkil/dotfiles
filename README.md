@@ -3,10 +3,11 @@ DotFiles
 
 Content inside DotFiles:
 
-* All bash scripts 
+* All bash scripts
 * Starship configuration
+* basic configuration for the lsd command
 
-#Don't forget to 
+#Don't forget to
 brew install bash
 brew install bash_completion@2
 brew install thefuck

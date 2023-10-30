@@ -21,3 +21,13 @@ alias dbi="importdb"
 alias dbe="exportdb"
 alias user="ddev craft users/create --admin=1 --email=tje@tje.tje --password=FakePassword12!@ --interactive=0"
 alias redo="ddev stop -aRO && ddev start && dbi && ddev craft up && user"
+
+###OTHER KEYBINDINGS###
+
+# Enter a few characters and press UpArrow/DownArrow
+# to search backwards/forwards through the history
+if [[ ${SHELLOPTS} =~ (vi|emacs) ]]; then
+    bind '"\e[A":history-search-backward'
+    bind '"\e[B":history-search-forward'
+fi
+
