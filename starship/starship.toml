@@ -7,7 +7,9 @@ $git_branch\
 $git_status\
 [](fg:#CB4B16 bg:#859900)\
 $nodejs\
-[ ](fg:#859900)\
+[](fg:#859900 bg:#B58900)\
+${custom.ddev}\
+[ ](fg:#B58900)\
 $character"""
 
 [directory]
@@ -42,3 +44,10 @@ error_symbol = '[❯](bold red) '
 
 [line_break]
 disabled = true 
+
+[custom.ddev]
+description = "Shows the currently active ddev project as we should really only be running 1 at a time"
+command = "docker ps | awk 'NR==1 {offset=index($0,\"NAMES\")};NR>1{print substr($0,offset)}' | sort -f | grep '\\-web' | sed 's/.*\\-\\(.*\\)\\-.*/\\1/' | head -1"
+symbol = " "
+when = "[[ -d .ddev ]]"
+format = '[[ $symbol $output ](fg:#EEE8D5 bg:#B58900)]($style)'

@@ -35,6 +35,16 @@ function vimlast(){
     fi
 }
 
+function copyCombellDb(){
+    SOURCE_DIR=${PWD##*/}
+    SOURCE_DIR=~/.databases/mysql/${SOURCE_DIR:-/}
+
+    FILE=`ls ~/Downloads/com-linweb*| head -1`
+    echo "Moving $FILE to $SOURCE_DIR"
+    rm -rf $SOURCE_DIR/*
+    mv $FILE $SOURCE_DIR
+}
+
 # import db from designated folder into docker container
 function importdb(){
     SOURCE_DIR=${PWD##*/}
