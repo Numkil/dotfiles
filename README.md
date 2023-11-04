@@ -18,6 +18,7 @@ brew install starship
 brew install ddev
 brew install colima
 brew install neovim
+brew install tldr
 ```
 and change the default shell to the new bash binary
 
