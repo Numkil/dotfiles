@@ -108,6 +108,14 @@ function setupproject(){
     fi
 }
 
+function get_default_branch() {
+    if git branch | grep -q '^. main\s*$'; then
+        echo main
+    else
+        echo master
+    fi
+}
+
 # release develop branch to master
 function release() {
     RELEASE_VERSION="release/$(date +%Y%m%d%H%M)"
@@ -118,10 +126,10 @@ function release() {
     git pull origin develop
     git push origin develop
     git checkout -b ${RELEASE_VERSION}
-    git checkout master
-    git pull origin master
+    git checkout $(get_default_branch)
+    git pull origin $(get_default_branch)
     git merge --no-ff ${RELEASE_VERSION}
-    git push origin master
+    git push origin $(get_default_branch)
 }
 
 # Hide difficult logic behind extracting compressed folders
@@ -140,7 +148,7 @@ function extract () {
             *.zip)     unzip $1 ;;
             *.Z)       uncompress $1 ;;
             *.7z)      7za x $1 ;;
-            *)         echo "'$1' cannot be extracted via extract" >&2;;
+            *)         echo "'$1' cannot be extracted via extract" >&2 ;;
         esac
     else
         echo "no file called $1"

@@ -21,6 +21,9 @@ alias dbi="importdb"
 alias dbe="exportdb"
 alias user="ddev craft users/create --admin=1 --email=tje@tje.tje --password=FakePassword12!@ --interactive=0"
 alias redo="ddev stop -aRO && ddev start && dbi && ddev craft up && user"
+#git aliases
+alias push='git push origin $(git branch --show-current)'
+alias pull='git pull origin $(git branch --show-current)'
 
 ###OTHER KEYBINDINGS###
 
