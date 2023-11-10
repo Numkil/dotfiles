@@ -20,6 +20,8 @@ brew install colima
 brew install neovim
 brew install tldr
 brew install bat
+brew tap homebrew/cask-fonts
+brew install font-hack-nerd-font // for now the least amount of work to get set up. 
 ```
 and change the default shell to the new bash binary
 
