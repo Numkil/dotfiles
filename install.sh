@@ -10,5 +10,6 @@ cp -f ./custom/aliases.sh ~/.aliases.sh
 cp -f ./custom/sudo.sh ~/.sudo.sh
 cp -f ./starship/starship.toml ~/.config/starship.toml
 cp -rf ./lsd ~/.config/lsd
+cp -rf ./wezterm ~/.config/wezterm
 
 echo "If no errors were reported, you can now run 'source ~/.bash_profile' to load the new settings."
