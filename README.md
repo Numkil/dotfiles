@@ -1,14 +1,17 @@
-DotFiles
-=======
+kickstart.bash
+==============
 
-Content inside DotFiles:
+Content inside my terminal kickstart:
 
-* All bash scripts
+* My bash setup, aliases, functions etc..
+* Wezterm settings
 * Starship configuration
-* basic configuration for the lsd command
-* wezterm settings
+* Lsd configuration
+* A script to copy all of the above config files to their correct destination
 
-Mandatory brew installs for using bash
+## Setting up my terminal
+
+Please install the following binaries via homebrew
 
 ```
 brew install wezterm
@@ -25,9 +28,21 @@ brew tap homebrew/cask-fonts
 brew install font-hack-nerd-font // for now the least amount of work to get set up. 
 ```
 
-The following libaries are optional and i won't include config for it in here.
+and change the default shell to the new bash binary
 
-My personal preference on mac apps
+```
+sudo vim /etc/shells
+add "/opt/homebrew/bin/bash"
+chsh -s opt/homebrew/bin/bash
+```
+
+after everything is installed run the following command
+
+``` chmod +x install.sh && sh install.sh ```
+
+## Other stuff I want to document i use on a regular basis but do not keep config for 
+
+Some good mac apps
 
 ```
 brew install amethyst
@@ -41,15 +56,3 @@ PHP development tools
 brew install ddev
 brew install colima
 ```
-
-and change the default shell to the new bash binary
-
-```
-sudo vim /etc/shells
-add "/opt/homebrew/bin/bash"
-chsh -s opt/homebrew/bin/bash
-```
-
-after everything is installed run the following command
-
-``` chmod +x install.sh && sh install.sh ```

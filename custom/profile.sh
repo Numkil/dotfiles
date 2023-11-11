@@ -47,6 +47,12 @@ else
     # Register nvm on path
     [[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
     [[ -s "$NVM_DIR/bash_completion" ]] && source "$NVM_DIR/bash_completion"
+
+    # Make sure that the local bin folder is on the path
+    export PATH="$HOME/.local/bin:$PATH"
+
+    # Make sure wezterm is executable
+    alias wezterm='flatpak run org.wezfurlong.wezterm'
 fi
 
 # Source thefuck command
