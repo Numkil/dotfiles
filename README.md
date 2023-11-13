@@ -48,11 +48,16 @@ Some good mac apps
 brew install amethyst
 brew install alfred
 brew install 1password
+brew install discord
+brew install slack
+brew install whatsapp
+brew install firefox
 ```
 
 PHP development tools
 
 ```
 brew install ddev
-brew install colima
+brew install colima # auto start colima ((brew services start colima))
+brew install sequelpro
 ```

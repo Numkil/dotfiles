@@ -16,6 +16,7 @@ alias lsa="lsd -larth"
 alias lst="lsd --tree"
 #Force nvim instead of vim
 alias vim="nvim"
+alias v="nvim"
 #shortcuts custom commands
 alias ffl="fetchfromlive"
 alias sshl="sshtolive"

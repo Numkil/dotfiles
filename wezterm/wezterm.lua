@@ -44,6 +44,12 @@ config.use_fancy_tab_bar = false
 -- window decoration
 config.scrollback_lines = 200000
 config.window_decorations = "RESIZE" -- no title bar
+config.window_padding = {
+	left = "0.5cell",
+	right = "0.5cell",
+	top = "0",
+	bottom = "0",
+}
 
 -- keybindings
 config.use_dead_keys = false
