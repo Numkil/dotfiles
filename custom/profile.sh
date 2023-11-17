@@ -29,6 +29,9 @@ export PATH="$HOME/.composer/vendor/bin:$PATH"
 # Set nvm directory
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 
+# Define where we will configure ripgrep for our purposes
+export RIPGREP_CONFIG_PATH="${HOME}/.config/ripgrep/config"
+
 # Determine correct bash completion script and set some OS specific settings
 if [[ "${OSTYPE}" == 'darwin'* ]]; then
     # Register brew on path

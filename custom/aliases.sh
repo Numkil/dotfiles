@@ -14,6 +14,7 @@ alias ls="lsd"
 alias lsa="lsd -larth"
 #ls in a full tree form!
 alias lst="lsd --tree"
+alias tree="lsd --tree"
 #Force nvim instead of vim
 alias vim="nvim"
 alias v="nvim"
