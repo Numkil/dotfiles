@@ -7,6 +7,7 @@ Content inside my terminal kickstart:
 * Wezterm settings
 * Starship configuration
 * Lsd configuration
+* Ripgrep configuration
 * A script to copy all of the above config files to their correct destination
 
 ## Setting up my terminal
