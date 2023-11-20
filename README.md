@@ -1,10 +1,11 @@
-kickstart.bash
+DotFiles
 ==============
 
-Content inside my terminal kickstart:
+Content inside my dotfiles:
 
 * My bash setup, aliases, functions etc..
 * Wezterm settings
+* My Neovim setup
 * Starship configuration
 * Lsd configuration
 * Ripgrep configuration
