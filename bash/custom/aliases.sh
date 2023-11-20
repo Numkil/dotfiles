@@ -11,10 +11,10 @@ alias cat="bat"
 #Prefer lsd binary over ls
 alias ls="lsd"
 #ls with more options
-alias lsa="lsd -larth"
+alias lsa="lsd -lArt"
 #ls in a full tree form!
-alias lst="lsd --tree"
-alias tree="lsd --tree"
+alias lst="lsd -A --tree"
+alias tree="lst"
 #Force nvim instead of vim
 alias vim="nvim"
 alias v="nvim"
