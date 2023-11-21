@@ -2,38 +2,52 @@ return {
   -- Adds git related signs to the gutter, as well as utilities for managing changes
   'lewis6991/gitsigns.nvim',
   event = { 'BufReadPre', 'BufNewFile' },
-  opts = {
-    -- See `:help gitsigns.txt`
-    signs = {
-      add = { text = '+' },
-      change = { text = '~' },
-      delete = { text = '_' },
-      topdelete = { text = '‾' },
-      changedelete = { text = '~' },
-    },
-    on_attach = function(bufnr)
-      vim.keymap.set('n', '<leader>hp', require('gitsigns').preview_hunk, { buffer = bufnr, desc = 'Preview git hunk' })
+  config = function()
+    require('gitsigns').setup {
+      signs = {
+        add = { text = '+' },
+        change = { text = '~' },
+        delete = { text = '_' },
+        topdelete = { text = '‾' },
+        changedelete = { text = '~' },
+      },
+      on_attach = function(bufnr)
+        local gs = package.loaded.gitsigns
 
-      -- don't override the built-in and fugitive keymaps
-      local gs = package.loaded.gitsigns
-      vim.keymap.set({ 'n', 'v' }, ']c', function()
-        if vim.wo.diff then
-          return ']c'
+        local function map(mode, l, r, opts)
+          opts = opts or {}
+          opts.buffer = bufnr
+          vim.keymap.set(mode, l, r, opts)
         end
-        vim.schedule(function()
-          gs.next_hunk()
-        end)
-        return '<Ignore>'
-      end, { expr = true, buffer = bufnr, desc = 'Jump to next hunk' })
-      vim.keymap.set({ 'n', 'v' }, '[c', function()
-        if vim.wo.diff then
-          return '[c'
-        end
-        vim.schedule(function()
-          gs.prev_hunk()
-        end)
-        return '<Ignore>'
-      end, { expr = true, buffer = bufnr, desc = 'Jump to previous hunk' })
-    end,
-  },
+
+        -- Navigation
+        map('n', ']c', function()
+          if vim.wo.diff then
+            return ']c'
+          end
+          vim.schedule(function()
+            gs.next_hunk()
+          end)
+          return '<Ignore>'
+        end, { expr = true })
+
+        map('n', '[c', function()
+          if vim.wo.diff then
+            return '[c'
+          end
+          vim.schedule(function()
+            gs.prev_hunk()
+          end)
+          return '<Ignore>'
+        end, { expr = true })
+
+        -- Actions
+        map('n', '<leader>gb', function()
+          gs.blame_line { full = true }
+        end, { desc = 'Show [G]it [B]lame commit' })
+        map('n', '<leader>gt', gs.toggle_current_line_blame, { desc = '[G]it toggle current line blame' })
+        map('n', '<leader>gd', gs.diffthis, { desc = 'Show [G]it diff' })
+      end,
+    }
+  end,
 }

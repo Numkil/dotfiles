@@ -1,6 +1,6 @@
 return {
   'echasnovski/mini.files',
-  event = { 'BufEnter' },
+  keys = { '-' },
   dependencies = {
     'nvim-tree/nvim-web-devicons',
   },
