@@ -29,7 +29,7 @@ return {
             gs.next_hunk()
           end)
           return '<Ignore>'
-        end, { expr = true })
+        end, { expr = true, buffer = bufnr, desc = 'Jump to next hunk' })
 
         map('n', '[c', function()
           if vim.wo.diff then
@@ -39,7 +39,7 @@ return {
             gs.prev_hunk()
           end)
           return '<Ignore>'
-        end, { expr = true })
+        end, { expr = true, buffer = bufnr, desc = 'Jump to previous hunk' })
 
         -- Actions
         map('n', '<leader>gb', function()
