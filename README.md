@@ -9,6 +9,7 @@ Content inside my dotfiles:
 * Starship configuration
 * Lsd configuration
 * Ripgrep configuration
+* Raycast config binary for importing
 * A script to copy all of the above config files to their correct destination
 
 ## Setting up my terminal
@@ -48,7 +49,7 @@ Some good mac apps
 
 ```
 brew install amethyst
-brew install alfred
+brew install raycast
 brew install 1password
 brew install discord
 brew install slack
