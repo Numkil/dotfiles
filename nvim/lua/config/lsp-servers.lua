@@ -18,7 +18,7 @@ return {
   tailwindcss = {
     filetypes = { 'twig', 'html' },
   },
-  -- htmx = {
-  --   filetypes = { 'twig', 'html' },
-  -- },
+  htmx = {
+    filetypes = { 'twig', 'html' },
+  },
 }

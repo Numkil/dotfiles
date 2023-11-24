@@ -7,7 +7,7 @@ alias rg="rg -i"
 #Lock the screen
 alias afk="osascript -e 'tell application \"System Events\" to keystroke \"q\" using {command down,control down}'"
 #Prefer bat binary over cat
-alias cat="bat"
+alias cat="bat --plain"
 #Prefer lsd binary over ls
 alias ls="lsd"
 #ls with more options
