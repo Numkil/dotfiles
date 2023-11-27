@@ -1,6 +1,7 @@
 return {
   -- Highlight, edit, and navigate code
   'nvim-treesitter/nvim-treesitter',
+  lazy = false,
   dependencies = {
     'nvim-treesitter/nvim-treesitter-textobjects',
     'andymass/vim-matchup',

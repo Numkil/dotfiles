@@ -11,7 +11,7 @@ end
 
 -- Pull in the wezterm API
 local wezterm = require("wezterm")
-
+local act = wezterm.action
 -- This table will hold the configuration.
 local config = {}
 
@@ -55,14 +55,19 @@ config.window_padding = {
 config.use_dead_keys = false
 config.keys = {
 	{
-		key = "h",
-		mods = "SHIFT|ALT",
-		action = wezterm.action.SplitHorizontal({ domain = "CurrentPaneDomain" }),
+		key = "C",
+		mods = "ALT",
+		action = act.AdjustPaneSize({ "Up", 5 }),
 	},
 	{
-		key = "v",
-		mods = "SHIFT|ALT",
-		action = wezterm.action.SplitVertical({ domain = "CurrentPaneDomain" }),
+		key = "B",
+		mods = "ALT",
+		action = act.AdjustPaneSize({ "Down", 5 }),
+	},
+	{
+		key = "V",
+		mods = "ALT",
+		action = act.SplitVertical({ domain = "CurrentPaneDomain" }),
 	},
 }
 

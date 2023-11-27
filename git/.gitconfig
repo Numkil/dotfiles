@@ -5,3 +5,7 @@
 	email = merel.jossart@outlook.com
 [core]
 	excludesFile = ~/.gitignore
+[merge]
+	tool = vimdiff
+[mergetool "vimdiff"]
+	path = nvim

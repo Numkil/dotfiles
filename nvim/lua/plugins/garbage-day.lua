@@ -3,6 +3,5 @@ return {
   event = 'BufEnter',
   opts = {
     notifications = true,
-    grace_period = 3 * 60,
   },
 }
