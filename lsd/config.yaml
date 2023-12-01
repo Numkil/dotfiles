@@ -5,3 +5,9 @@ ignore-globs:
   - .git/*
   - vendor
   - vendor/*
+  - cpresources
+  - cpresources/*
+  - storage
+  - storage/*
+  - node_modules
+  - node_modules/*

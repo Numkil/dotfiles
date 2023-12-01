@@ -2,15 +2,19 @@
 --max-columns=150
 --max-columns-preview
 
-# Add my 'web' type.
+# Add my custom types.
 --type-add
 web:*.{twig,css,js,ts}*
+
+--type-add
+backend:*.{twig,php}*
 
 # Search hidden files / directories (e.g. dotfiles) by default
 --hidden
 
 # Using glob patterns to include/exclude files or folders
---glob=!.git/*,!node_modules/*
+--glob=!.git/*
+--glob=!node_modules/*
 
 # Set the colors.
 --colors=line:none
