@@ -2,6 +2,7 @@ cp -f ./bash/custom/profile.sh ~/.bash_profile
 cp -f ./bash/completions/git-completion.sh ~/.git-completion.sh
 cp -f ./bash/completions/ssh-completion.sh ~/.ssh-completion.sh
 cp -f ./bash/custom/helper-functions.sh ~/.helper-functions.sh
+cp -f ./bash/custom/options.sh ~/.options.sh
 cp -f ./bash/custom/aliases.sh ~/.aliases.sh
 cp -f ./bash/custom/sudo.sh ~/.sudo.sh
 cp -f ./starship/starship.toml ~/.config/starship.toml
