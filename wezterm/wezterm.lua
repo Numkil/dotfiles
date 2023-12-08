@@ -25,15 +25,15 @@ if wezterm.config_builder then
 end
 
 -- color scheme
-config.color_scheme = "Solarized Dark (Gogh)"
+config.color_scheme = "Solarized Light (Gogh)"
 
 -- fonts
-config.font_size = 12.0
+config.font_size = 12.3
 if IS_LINUX then
 	config.font_size = 10
 end
 config.font = wezterm.font_with_fallback({
-	{ family = "Hack Nerd Font Mono" },
+	{ family = "Hack Nerd Font Mono", weight = "Medium" },
 	"JetBrains Mono",
 })
 

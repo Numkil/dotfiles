@@ -94,6 +94,7 @@ return {
         on_attach = on_attach,
         settings = server_settings,
         filetypes = (server_settings or {}).filetypes,
+        init_options = (server_settings or {}).init_options,
       }
     end
   end,

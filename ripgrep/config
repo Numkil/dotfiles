@@ -15,6 +15,7 @@ backend:*.{twig,php}*
 # Using glob patterns to include/exclude files or folders
 --glob=!.git/*
 --glob=!node_modules/*
+--glob=!composer.lock
 
 # Set the colors.
 --colors=line:none
