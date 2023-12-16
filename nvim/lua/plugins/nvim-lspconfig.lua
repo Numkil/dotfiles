@@ -10,7 +10,7 @@ return {
     'https://git.sr.ht/~whynothugo/lsp_lines.nvim',
   },
   config = function()
-    -- turn off virtual text as we replace with lsp_liens
+    -- turn off virtual text as we replace with lsp_lines
     vim.diagnostic.config {
       virtual_text = false,
     }

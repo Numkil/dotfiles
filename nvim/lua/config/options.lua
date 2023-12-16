@@ -30,6 +30,10 @@ vim.o.mouse = ''
 -- Save undo history
 vim.o.undofile = true
 
+-- Turn off swap files
+vim.o.swapfile = false
+vim.o.backup = false
+
 -- Case-insensitive searching UNLESS \C or capital in search
 vim.o.ignorecase = true
 vim.o.smartcase = true

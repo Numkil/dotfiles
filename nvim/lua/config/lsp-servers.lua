@@ -8,7 +8,7 @@ return {
       ['language_server_configuration.auto_config'] = false,
       ['code_transform.import_globals'] = true,
       ['language_server_php_cs_fixer.enabled'] = true,
-      ['language_server_phpstan.enabled'] = true,
+      ['language_server_phpstan.enabled'] = false,
     },
   },
   tsserver = {},
