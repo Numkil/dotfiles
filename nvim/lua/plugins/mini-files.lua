@@ -12,8 +12,10 @@ return {
       end
     end
 
-    vim.keymap.set('n', '-', minifiles_toggle, { desc = 'Open parent directory' })
+    require('utils').keymapSet('n', '-', minifiles_toggle, { desc = 'Open current directory as buffer' })
 
-    require('mini.files').setup()
+    require('mini.files').setup {
+      use_as_default_explorer = true,
+    }
   end,
 }

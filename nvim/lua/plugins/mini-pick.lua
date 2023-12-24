@@ -41,26 +41,38 @@ return {
     }
     MiniExtra.setup()
 
-    -- Search using current buffers
-    vim.keymap.set('n', '<leader><space>', MiniPick.builtin.buffers, { desc = '[ ] Find existing buffers' })
-    vim.keymap.set('n', '<leader>/', function()
-      MiniExtra.pickers.buf_lines()
-    end, { desc = '[/] Fuzzily search in currently opened buffers' })
+    require('utils').keymapSetList {
+      -- Search using current buffers
+      { 'n', '<leader><space>', MiniPick.builtin.buffers, { desc = '[ ] Find existing buffers' } },
+      {
+        'n',
+        '<leader>/',
+        function()
+          MiniExtra.pickers.buf_lines()
+        end,
+        { desc = '[/] Fuzzily search in currently opened buffers' },
+      },
 
-    -- Search based on filename
-    vim.keymap.set('n', '<leader>sf', MiniPick.builtin.files, { desc = '[S]earch [F]iles' })
-    vim.keymap.set('n', '<leader>?', MiniExtra.pickers.oldfiles, { desc = '[?] Find recently opened files' })
+      -- Search based on filename
+      { 'n', '<leader>sf', MiniPick.builtin.files, { desc = '[S]earch [F]iles' } },
+      { 'n', '<leader>?', MiniExtra.pickers.oldfiles, { desc = '[?] Find recently opened files' } },
 
-    -- Search using grep
-    vim.keymap.set('n', '<leader>sg', MiniPick.builtin.grep_live, { desc = '[S]earch by [G]rep' })
-    vim.keymap.set('n', '<leader>sw', function()
-      MiniPick.builtin.grep({ pattern = vim.fn.escape(vim.fn.expand('<cword>'), [[\/]]) })
-    end, { desc = '[S]earch current [W]ord' })
+      -- Search using grep
+      { 'n', '<leader>sg', MiniPick.builtin.grep_live, { desc = '[S]earch by [G]rep' } },
+      {
+        'n',
+        '<leader>sw',
+        function()
+          MiniPick.builtin.grep { pattern = vim.fn.escape(vim.fn.expand '<cword>', [[\/]]) }
+        end,
+        { desc = '[S]earch current [W]ord' },
+      },
 
-    -- Other search
-    vim.keymap.set('n', '<leader>sh', MiniPick.builtin.help, { desc = '[S]earch [H]elp' })
-    vim.keymap.set('n', '<leader>sd', MiniExtra.pickers.diagnostic, { desc = '[S]earch [D]iagnostics' })
-    vim.keymap.set('n', '<leader>gf', MiniExtra.pickers.git_hunks, { desc = 'Search [G]it [F]iles' })
-    vim.keymap.set('n', '<leader>sr', MiniPick.builtin.resume, { desc = '[S]earch [R]resume' })
+      -- Other search
+      { 'n', '<leader>sh', MiniPick.builtin.help, { desc = '[S]earch [H]elp' } },
+      { 'n', '<leader>sd', MiniExtra.pickers.diagnostic, { desc = '[S]earch [D]iagnostics' } },
+      { 'n', '<leader>gf', MiniExtra.pickers.git_hunks, { desc = 'Search [G]it [F]iles' } },
+      { 'n', '<leader>sr', MiniPick.builtin.resume, { desc = '[S]earch [R]resume' } },
+    }
   end,
 }

@@ -1,7 +1,7 @@
 return {
   'echasnovski/mini.starter',
   config = function()
-    vim.keymap.set('n', '<space><space><space>', ':lua MiniStarter.open()<CR>', { remap = true })
+    require('utils').keymapSet('n', '<space><space><space>', ':lua MiniStarter.open()<CR>', { desc = 'Open the starting dashboard' })
 
     local starter = require 'mini.starter'
     starter.setup {

@@ -6,6 +6,7 @@ return {
     vim.o.background = 'light'
 
     require('solarized').setup {
+      palette = 'selenized',
       theme = 'neo',
       styles = {
         comments = { italic = true, bold = false },

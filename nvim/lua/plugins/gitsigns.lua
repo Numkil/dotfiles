@@ -13,40 +13,48 @@ return {
       },
       on_attach = function(bufnr)
         local gs = package.loaded.gitsigns
-
-        local function map(mode, l, r, opts)
-          opts = opts or {}
-          opts.buffer = bufnr
-          vim.keymap.set(mode, l, r, opts)
-        end
-
-        -- Navigation
-        map('n', ']c', function()
-          if vim.wo.diff then
-            return ']c'
-          end
-          vim.schedule(function()
-            gs.next_hunk()
-          end)
-          return '<Ignore>'
-        end, { expr = true, buffer = bufnr, desc = 'Jump to next hunk' })
-
-        map('n', '[c', function()
-          if vim.wo.diff then
-            return '[c'
-          end
-          vim.schedule(function()
-            gs.prev_hunk()
-          end)
-          return '<Ignore>'
-        end, { expr = true, buffer = bufnr, desc = 'Jump to previous hunk' })
-
-        -- Actions
-        map('n', '<leader>gb', function()
-          gs.blame_line { full = true }
-        end, { desc = 'Show [G]it [B]lame commit' })
-        map('n', '<leader>gt', gs.toggle_current_line_blame, { desc = '[G]it toggle current line blame' })
-        map('n', '<leader>gd', gs.diffthis, { desc = 'Show [G]it diff' })
+        require('utils').keymapSetList({
+          -- navigation
+          {
+            'n',
+            ']c',
+            function()
+              if vim.wo.diff then
+                return ']c'
+              end
+              vim.schedule(function()
+                gs.next_hunk()
+              end)
+              return '<Ignore>'
+            end,
+            { expr = true, desc = 'Jump to next hunk' },
+          },
+          {
+            'n',
+            '[c',
+            function()
+              if vim.wo.diff then
+                return '[c'
+              end
+              vim.schedule(function()
+                gs.prev_hunk()
+              end)
+              return '<Ignore>'
+            end,
+            { expr = true, desc = 'Jump to previous hunk' },
+          },
+          -- Actions
+          {
+            'n',
+            '<leader>gb',
+            function()
+              gs.blame_line { full = true }
+            end,
+            { desc = 'Show [G]it [B]lame commit' },
+          },
+          { 'n', '<leader>gt', gs.toggle_current_line_blame, { desc = '[G]it toggle current line blame' } },
+          { 'n', '<leader>gd', gs.diffthis, { desc = 'Show [G]it diff' } },
+        }, bufnr)
       end,
     }
   end,

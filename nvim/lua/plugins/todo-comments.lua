@@ -14,6 +14,6 @@ return {
   config = function()
     require('todo-comments').setup(opts)
 
-    vim.keymap.set('n', '<leader>st', ':TodoLocList<CR>', { desc = '[S]earch [Todos]' })
+    require('utils').keymapSet('n', '<leader>st', ':TodoLocList<CR>', { desc = '[S]earch [Todos]' })
   end,
 }
