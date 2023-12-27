@@ -38,12 +38,7 @@ local opts = {
 return {
   'stevearc/conform.nvim',
   event = 'BufWritePre',
-  dependencies = {
-    -- If there are no formatters or lsp_fallback at least remove whitespace
-    'cappyzawa/trim.nvim',
-  },
   config = function()
-    require('trim').setup {}
     require('conform').setup(opts)
   end,
 }
