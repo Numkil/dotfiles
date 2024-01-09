@@ -7,6 +7,9 @@ vim.o.linebreak = true
 vim.o.wrapmargin = 5
 vim.o.breakindent = true
 
+-- I want to keep 7 lines above/below the cursor when scrolling
+vim.o.scrolloff = 7
+
 -- Set highlight on search
 vim.o.hlsearch = true
 vim.o.showmatch = true
@@ -15,8 +18,6 @@ vim.o.showmatch = true
 vim.wo.number = true
 
 -- Sync clipboard between OS and Neovim.
---  Remove this option if you want your OS clipboard to remain independent.
---  See `:help 'clipboard'`
 vim.o.clipboard = 'unnamedplus'
 
 -- Fallback tabstop settings when sleuth fails me
