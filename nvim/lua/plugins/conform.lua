@@ -1,4 +1,9 @@
 local opts = {
+  formatters = {
+    php_cs_fixer = {
+      inherit = true,
+    },
+  },
   formatters_by_ft = {
     javascript = { 'prettierd', 'prettier' },
     typescript = { 'prettierd', 'prettier' },
@@ -10,7 +15,7 @@ local opts = {
     yaml = { 'prettierd', 'prettier' },
     rust = { 'rustfmt' },
     lua = { 'stylua' },
-    php = { 'php-cs-fixer' },
+    php = { 'php_cs_fixer' },
   },
   format_on_save = function(bufnr)
     -- Disable autoformat on certain filetypes
