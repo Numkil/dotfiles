@@ -2,6 +2,7 @@ local opts = {
   formatters = {
     php_cs_fixer = {
       inherit = true,
+      command = 'php-cs-fixer',
     },
     ludtwig = {
       inherit = false,
@@ -31,18 +32,12 @@ local opts = {
       return
     end
 
-    -- Disable with a global or buffer-local variable
-    if vim.g.disable_autoformat or vim.b[bufnr].disable_autoformat then
-      return
-    end
-
     -- Disable autoformat for files in a certain path
     local bufname = vim.api.nvim_buf_get_name(bufnr)
     if bufname:match '/node_modules/' or bufname:match '/vendor/' then
       return
     end
 
-    -- ...additional logic...
     return { timeout_ms = 500, lsp_fallback = true }
   end,
 }

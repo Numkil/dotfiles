@@ -10,6 +10,7 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 })
 
 -- [[ Reopen file in the last position it was edited ]]
+local openGroup = vim.api.nvim_create_augroup('OpenLastPos', { clear = true })
 vim.api.nvim_create_autocmd('BufRead', {
   callback = function(opts)
     vim.api.nvim_create_autocmd('BufWinEnter', {
@@ -23,5 +24,40 @@ vim.api.nvim_create_autocmd('BufRead', {
         end
       end,
     })
+  end,
+  group = openGroup,
+})
+
+-- [[ Keep cursor centered ]]
+local mode = { insert = 'insert', other = 'other' }
+local function stay_centered(myMode)
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  if line ~= vim.b.last_line then
+    vim.cmd 'norm! zz'
+    vim.b.last_line = line
+    if myMode == mode.insert then
+      local column = vim.fn.getcurpos()[5]
+      vim.fn.cursor { line, column }
+    end
+  end
+end
+
+local centerGroup = vim.api.nvim_create_augroup('StayCentered', { clear = true })
+vim.api.nvim_create_autocmd('CursorMovedI', {
+  group = centerGroup,
+  callback = function()
+    stay_centered(mode.insert)
+  end,
+})
+vim.api.nvim_create_autocmd('CursorMoved', {
+  group = centerGroup,
+  callback = function()
+    stay_centered(mode.other)
+  end,
+})
+vim.api.nvim_create_autocmd('BufEnter', {
+  group = centerGroup,
+  callback = function()
+    stay_centered(mode.other)
   end,
 })

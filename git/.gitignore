@@ -4,3 +4,4 @@
 .ddev/docker-compose.phpmyadmin-norouter.yaml
 .ddev/docker-compose.phpmyadmin.yaml
 .ddev/addon-metadata/phpmyadmin/manifest.yaml
+ludtwig-config.toml
