@@ -28,7 +28,7 @@ brew install neovim
 brew install tldr
 brew install bat
 brew tap homebrew/cask-fonts
-brew install font-hack-nerd-font // for now the least amount of work to get set up. 
+brew install font-hack-nerd-font // for now the least amount of work to get set up.
 ```
 
 and change the default shell to the new bash binary
@@ -43,7 +43,7 @@ after everything is installed run the following command
 
 ``` chmod +x install.sh && sh install.sh ```
 
-## Other stuff I want to document i use on a regular basis but do not keep config for 
+## Other stuff I want to document i use on a regular basis but do not keep config for
 
 Some good mac apps
 
@@ -63,4 +63,6 @@ PHP development tools
 brew install ddev
 brew install colima # auto start colima ((brew services start colima))
 brew install sequelpro
+brew install cargo
+cargo install ludtwig
 ```

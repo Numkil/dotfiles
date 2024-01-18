@@ -3,11 +3,18 @@ local opts = {
     php_cs_fixer = {
       inherit = true,
     },
+    ludtwig = {
+      inherit = false,
+      command = 'ludtwig',
+      args = { '-f', '$FILENAME' },
+      stdin = false,
+    },
   },
   formatters_by_ft = {
     javascript = { 'prettierd', 'prettier' },
     typescript = { 'prettierd', 'prettier' },
     html = { 'prettierd', 'prettier' },
+    twig = { 'ludtwig' },
     css = { 'prettierd', 'prettier' },
     scss = { 'prettierd', 'prettier' },
     less = { 'prettierd', 'prettier' },
@@ -19,7 +26,7 @@ local opts = {
   },
   format_on_save = function(bufnr)
     -- Disable autoformat on certain filetypes
-    local ignore_filetypes = { 'sql', 'twig' }
+    local ignore_filetypes = { 'sql' }
     if vim.tbl_contains(ignore_filetypes, vim.bo[bufnr].filetype) then
       return
     end

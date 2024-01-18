@@ -9,6 +9,9 @@ file="${HOME}/.options.sh"
 # Register composer on path
 export PATH="$HOME/.composer/vendor/bin:$PATH"
 
+# Register rust binaries on path
+export PATH="$HOME/.cargo/bin:$PATH"
+
 # Determine correct bash completion script and set some OS specific settings
 if [[ "${OSTYPE}" == 'darwin'* ]]; then
     # Register brew on path
