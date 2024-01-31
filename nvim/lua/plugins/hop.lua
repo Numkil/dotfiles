@@ -1,5 +1,6 @@
 return {
   'smoka7/hop.nvim',
+  event = { 'BufReadPre', 'BufNewFile' },
   version = '*',
   config = function()
     local hop = require 'hop'
