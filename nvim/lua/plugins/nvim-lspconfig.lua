@@ -95,29 +95,10 @@ return {
           end,
           { desc = 'Type [D]efinition' },
         },
-        {
-          'n',
-          '<leader>ws',
-          function()
-            MiniExtra.pickers.lsp { scope = 'workspace_symbol' }
-          end,
-          { desc = '[W]orkspace [S]ymbols' },
-        },
         -- See `:help K` for why this keymap
         { 'n', 'K', vim.lsp.buf.hover, { desc = 'Hover Documentation' } },
-        { 'n', '<C-S-k>', vim.lsp.buf.signature_help, { desc = 'Signature Documentation' } },
+        { { 'n', 'i' }, '<c-k>', vim.lsp.buf.signature_help, { desc = 'Signature Documentation' } },
         { 'n', '<leader>K', '<cmd>norm! K<cr>', { desc = 'Run keywordprg' } },
-        -- Lesser used LSP functionality
-        { 'n', '<leader>wa', vim.lsp.buf.add_workspace_folder, { desc = '[W]orkspace [A]dd Folder' } },
-        { 'n', '<leader>wr', vim.lsp.buf.remove_workspace_folder, { desc = '[W]orkspace [R]emove Folder' } },
-        {
-          'n',
-          '<leader>wl',
-          function()
-            print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
-          end,
-          { desc = '[W]orkspace [L]ist Folders' },
-        },
       }, bufnr, 'LSP: ')
 
       -- Create a command `:Format` local to the LSP buffer
