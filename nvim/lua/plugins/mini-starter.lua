@@ -14,12 +14,12 @@ return {
           return {
             {
               name = 'Neovim config',
-              action = [[e ~/Documents/projects/dotfiles/nvim/init.lua]],
+              action = [[e ~/Documents/projects/numkil/dotfiles/nvim/init.lua]],
               section = 'Personal config',
             },
             {
               name = 'Bash config',
-              action = [[e ~/Documents/projects/dotfiles/bash/custom/profile.sh]],
+              action = [[e ~/Documents/projects/numkil/dotfiles/bash/custom/profile.sh]],
               section = 'Personal config',
             },
           }

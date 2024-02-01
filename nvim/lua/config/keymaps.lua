@@ -3,6 +3,8 @@
 vim.cmd [[ cnoreabbrev <expr> W getcmdtype() == ":" && getcmdline() == "W" ? "w" : "W" ]]
 
 require('utils').keymapSetList {
+  -- quicker way of exiting out of vim
+  { 'n', '<leader>z', ':wqall<CR>', { desc = 'Save and quit' } },
   -- Make sure space does nothing on its own
   { { 'n', 'v' }, '<Space>', '<Nop>' },
   -- Because mac touch bar...

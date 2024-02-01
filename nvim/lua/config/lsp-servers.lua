@@ -21,7 +21,7 @@ return {
   },
   bashls = {},
   -- templating LSP
-  twig_language_server = {},
+  -- twig_language_server = {},
   html = {
     filetypes = { 'twig', 'html' },
   },
