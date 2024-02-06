@@ -1,19 +1,19 @@
 format = """
-[░▒▓](#a3aed2)\
-[](bg:#268bd2 fg:#a3aed2)\
+[░▒▓](#35a77c)\
+[](bg:#3a94c5 fg:#35a77c)\
 $directory\
-[](fg:#268db2 bg:#CB4B16)\
+[](fg:#3a94c5 bg:#f57d26)\
 $git_branch\
 $git_status\
-[](fg:#CB4B16 bg:#859900)\
+[](fg:#f57d26 bg:#8da101)\
 $nodejs\
-[](fg:#859900 bg:#B58900)\
+[](fg:#8da101 bg:#dfa000)\
 ${custom.ddev}\
-[ ](fg:#B58900)\
+[ ](fg:#dfa000)\
 $character"""
 
 [directory]
-style = "fg:#EEE8D5 bg:#268db2"
+style = "fg:#EEE8D5 bg:#3a94c5"
 format = "[ $path ]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
@@ -26,28 +26,28 @@ truncation_symbol = "…/"
 
 [git_branch]
 symbol = ""
-style = "bg:#CB4B16"
-format = '[[ $symbol $branch ](fg:#EEE8D5 bg:#CB4B16)]($style)'
+style = "bg:#f57d26"
+format = '[[ $symbol $branch ](fg:#EEE8D5 bg:#f57d26)]($style)'
 
 [git_status]
-style = "bg:#CB4B16"
-format = '[[($all_status$ahead_behind )](fg:#EEE8D5 bg:#CB4B16)]($style)'
+style = "bg:#f57d26"
+format = '[[($all_status$ahead_behind )](fg:#EEE8D5 bg:#f57d26)]($style)'
 
 [nodejs]
 symbol = "󰎙"
-style = "bg:#859900"
-format = '[[ $symbol ($version) ](fg:#EEE8D5 bg:#859900)]($style)'
+style = "bg:#8da101"
+format = '[[ $symbol ($version) ](fg:#EEE8D5 bg:#8da101)]($style)'
 
 [character]
 success_symbol = '[❯](bold green) '
 error_symbol = '[❯](bold red) '
 
 [line_break]
-disabled = true 
+disabled = true
 
 [custom.ddev]
 description = "Shows the currently active ddev project as we should really only be running 1 at a time"
 command = "docker ps | awk 'NR==1 {offset=index($0,\"NAMES\")};NR>1{print substr($0,offset)}' | sort -f | grep '\\-web' | sed 's/.*\\-\\(.*\\)\\-.*/\\1/' | head -1"
 symbol = " "
 when = "[[ -d .ddev ]]"
-format = '[[ $symbol $output ](fg:#EEE8D5 bg:#B58900)]($style)'
+format = '[[ $symbol $output ](fg:#EEE8D5 bg:#dfa000)]($style)'

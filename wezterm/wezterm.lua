@@ -25,7 +25,7 @@ if wezterm.config_builder then
 end
 
 -- color scheme
-config.color_scheme = "Solarized Light (Gogh)"
+config.color_scheme = "Everforest Light (Gogh)"
 
 -- fonts
 config.font_size = 12.3
