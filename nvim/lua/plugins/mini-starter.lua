@@ -1,8 +1,6 @@
 return {
   'echasnovski/mini.starter',
   config = function()
-    require('utils').keymapSet('n', '<space><space><space>', ':lua MiniStarter.open()<CR>', { desc = 'Open the starting dashboard' })
-
     local starter = require 'mini.starter'
     starter.setup {
       evaluate_single = true,
