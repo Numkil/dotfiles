@@ -38,6 +38,12 @@ return {
         -- `z` key
         { mode = 'n', keys = 'z' },
         { mode = 'x', keys = 'z' },
+
+        -- treesitter movements
+        { mode = 'n', keys = '[' },
+        { mode = 'n', keys = ']' },
+        { mode = 'x', keys = '[' },
+        { mode = 'x', keys = ']' },
       },
 
       clues = {
