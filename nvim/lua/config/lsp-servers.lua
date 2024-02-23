@@ -12,7 +12,6 @@ return {
     },
   },
   tsserver = {},
-  rust_analyzer = {},
   lua_ls = {
     Lua = {
       workspace = { checkThirdParty = false },
@@ -21,7 +20,7 @@ return {
   },
   bashls = {},
   -- templating LSP
-  twig_language_server = {},
+  twiggy_language_server = {},
   html = {
     filetypes = { 'twig', 'html' },
   },
