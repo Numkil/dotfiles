@@ -18,16 +18,12 @@ export HISTCONTROL=$HISTCONTROL${HISTCONTROL+:}ignoredups
 shopt -s histappend
 
 # Set the colours to use in prompt
-if [[ $COLORTERM = gnome-* && $TERM = xterm ]] && infocmp gnome-256color >/dev/null 2>&1; then
-    export TERM=gnome-256color
-elif infocmp xterm-256color >/dev/null 2>&1; then
-    export TERM=xterm-256color
-fi
+export TERM="wezterm"
 
 # Disable bell
 bind "set bell-style visible"
 # Ignore case on auto-completion
 bind "set completion-ignore-case on"
-# Show auto-completion list automatically, without double 
+# Show auto-completion list automatically, without double
 bind "set show-all-if-ambiguous On"
 
