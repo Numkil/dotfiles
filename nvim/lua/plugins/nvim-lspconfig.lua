@@ -6,40 +6,8 @@ return {
   dependencies = {
     -- Additional lua configuration, makes nvim stuff amazing!
     'folke/neodev.nvim',
-    -- show diagnostic messages inline
-    'https://git.sr.ht/~whynothugo/lsp_lines.nvim',
   },
   config = function()
-    -- turn off virtual text as we replace with lsp_lines
-    vim.diagnostic.config {
-      virtual_text = false,
-
-      -- TODO: enable this when vim 0.10.0 is released
-      -- signs = {
-      --   text = {
-      --     [vim.diagnostic.severity.ERROR] = '✘',
-      --     [vim.diagnostic.severity.WARN] = '▲',
-      --     [vim.diagnostic.severity.HINT] = '⚑',
-      --     [vim.diagnostic.severity.INFO] = '»',
-      --   },
-      -- },
-    }
-
-    -- Use neat icons for diagnostics
-    -- TODO: workaround until nvim 0.10.0 is released
-    local function sign_define(args)
-      vim.fn.sign_define(args.name, {
-        texthl = args.name,
-        text = args.text,
-        numhl = '',
-      })
-    end
-
-    sign_define { name = 'DiagnosticSignError', text = '✘' }
-    sign_define { name = 'DiagnosticSignWarn', text = '▲' }
-    sign_define { name = 'DiagnosticSignHint', text = '⚑' }
-    sign_define { name = 'DiagnosticSignInfo', text = '»' }
-
     --  This function gets run when an LSP connects to a particular buffer.
     local on_attach = function(_, bufnr)
       local MiniExtra = require 'mini.extra'
@@ -109,9 +77,6 @@ return {
 
     -- Setup neovim lua configuration
     require('neodev').setup()
-
-    -- Setup lsp lines
-    require('lsp_lines').setup {}
 
     -- nvim-cmp supports additional completion capabilities, so broadcast that to servers
     local capabilities = vim.lsp.protocol.make_client_capabilities()

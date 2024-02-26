@@ -32,7 +32,6 @@ require('utils').keymapSetList {
     'n',
     '<Esc>',
     function()
-      require('notify').dismiss()
       vim.cmd 'Noice dismiss'
       vim.cmd 'nohl'
     end,

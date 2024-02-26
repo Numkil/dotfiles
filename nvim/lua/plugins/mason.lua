@@ -12,12 +12,9 @@ return {
     -- mason-lspconfig requires that these setup functions are called in this order
     -- before setting up the servers.
     require('mason').setup()
-    require('mason-lspconfig').setup()
 
-    -- Ensure the servers in 'utils.servers' are installed
-    local mason_lspconfig = require 'mason-lspconfig'
-
-    mason_lspconfig.setup {
+    -- Ensure the servers in 'config.lsp-servers' are installed
+    require('mason-lspconfig').setup {
       ensure_installed = vim.tbl_keys(require 'config.lsp-servers'),
     }
 
