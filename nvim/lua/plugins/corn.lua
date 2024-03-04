@@ -1,6 +1,7 @@
 return {
   -- Configure UI for diagnostics
   'RaafatTurki/corn.nvim',
+  event = { 'BufReadPre', 'BufNewFile' },
   config = function()
     -- turn off virtual text as we replace with lsp_lines
     vim.diagnostic.config {

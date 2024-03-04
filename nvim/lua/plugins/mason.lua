@@ -4,6 +4,7 @@ return {
   dependencies = {
     -- Automatically install LSPs to stdpath for neovim
     'williamboman/mason-lspconfig.nvim',
+    'WhoIsSethDaniel/mason-tool-installer.nvim',
 
     -- Installs debug adapters for you
     'jay-babu/mason-nvim-dap.nvim',
@@ -17,23 +18,18 @@ return {
     local capabilities = vim.lsp.protocol.make_client_capabilities()
     capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
-    for server_name, server_settings in pairs(require 'config.lsp-servers') do
-      server_settings.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server_settings.capabilities or {})
-      require('lspconfig')[server_name].setup {
-        capabilities = server_settings.capabilities,
-        settings = server_settings,
-        filetypes = (server_settings or {}).filetypes,
-        init_options = (server_settings or {}).init_options,
-      }
-    end
-
+    local servers = require 'config.lsp-servers'
+    require('mason-tool-installer').setup { ensure_installed = vim.tbl_keys(servers) }
 
     -- Ensure the servers in 'config.lsp-servers' are installed
     require('mason-lspconfig').setup {
-      ensure_installed = vim.tbl_keys(require 'config.lsp-servers'),
       handlers = {
-
-      }
+        function(server_name)
+          local server = servers[server_name] or {}
+          server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+          require('lspconfig')[server_name].setup(server)
+        end,
+      },
     }
 
     -- Setup the debug adapters

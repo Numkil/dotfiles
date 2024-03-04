@@ -1,6 +1,6 @@
 return {
   'zeioth/garbage-day.nvim',
-  event = 'VeryLazy',
+  event = { 'BufReadPre', 'BufNewFile' },
   opts = {
     notifications = true,
   },
