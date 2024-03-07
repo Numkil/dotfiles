@@ -1,4 +1,5 @@
 .php-cs*
+.DS_Store
 .phpactor*
 .php-cs-fixer.cache
 .ddev/docker-compose.phpmyadmin-norouter.yaml

@@ -27,6 +27,8 @@ require('utils').keymapSetList {
   { 'n', ']d', vim.diagnostic.goto_next, { desc = 'Go to next diagnostic message' } },
   { 'n', '<leader>e', vim.diagnostic.open_float, { desc = 'Open floating diagnostic message' } },
   { 'n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostics list' } },
+  -- Open lazygit integration
+  { 'n', '<leader>lg', '<cmd>LazyGit<CR>', { desc = 'Open LazyGit' } },
   -- Clear notifications and search
   {
     'n',
