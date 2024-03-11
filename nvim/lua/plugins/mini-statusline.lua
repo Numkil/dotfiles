@@ -1,11 +1,9 @@
 return {
-  'nvim-lualine/lualine.nvim',
+  'echasnovski/mini.statusline',
   dependencies = {
     'nvim-tree/nvim-web-devicons',
   },
   config = function()
-    require('lualine').setup {
-      theme = 'everforest',
-    }
+    require('mini.statusline').setup()
   end,
 }

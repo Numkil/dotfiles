@@ -19,7 +19,7 @@ return {
     capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
     local servers = require 'config.lsp-servers'
-    require('mason-tool-installer').setup { ensure_installed = vim.tbl_keys(servers) }
+    require('mason-tool-installer').setup { ensure_installed = vim.tbl_keys(servers), auto_update = true }
 
     -- Ensure the servers in 'config.lsp-servers' are installed
     require('mason-lspconfig').setup {
