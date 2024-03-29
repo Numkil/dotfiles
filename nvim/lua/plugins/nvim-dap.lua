@@ -7,6 +7,7 @@ return {
   dependencies = {
     -- Creates a beautiful debugger UI
     'rcarriga/nvim-dap-ui',
+    'nvim-neotest/nvim-nio',
   },
   keys = { '<F5>' },
   config = function()
@@ -36,10 +37,10 @@ return {
     }
 
     require('utils').keymapSetList {
-      { 'n', '<F5>', dap.continue, { desc = 'Debug: Start/Continue' } },
-      { 'n', '<F1>', dap.step_into, { desc = 'Debug: Step Into' } },
-      { 'n', '<F2>', dap.step_over, { desc = 'Debug: Step Over' } },
-      { 'n', '<F3>', dap.step_out, { desc = 'Debug: Step Out' } },
+      { 'n', '<F5>',      dap.continue,          { desc = 'Debug: Start/Continue' } },
+      { 'n', '<F1>',      dap.step_into,         { desc = 'Debug: Step Into' } },
+      { 'n', '<F2>',      dap.step_over,         { desc = 'Debug: Step Over' } },
+      { 'n', '<F3>',      dap.step_out,          { desc = 'Debug: Step Out' } },
       { 'n', '<leader>b', dap.toggle_breakpoint, { desc = 'Debug: Toggle Breakpoint' } },
       {
         'n',
