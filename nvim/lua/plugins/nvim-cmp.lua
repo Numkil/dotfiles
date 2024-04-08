@@ -41,39 +41,10 @@ return {
     -- See `:help cmp`
     local cmp_status_ok, cmp = pcall(require, 'cmp')
     local luasnip = require 'luasnip'
+
     require('luasnip.loaders.from_vscode').lazy_load()
     luasnip.config.setup {}
     luasnip.filetype_extend('twig', { 'twig', 'html', 'all' })
-
-    local preferred_sources = cmp.config.sources({
-      { name = 'luasnip' },
-      { name = 'nvim_lsp' },
-    }, {
-      { name = 'path' },
-    })
-    local function tooBig(bufnr)
-      local max_filesize = 10 * 1024 -- 100 KB
-      local check_stats = (vim.uv or vim.loop).fs_stat
-      local ok, stats = pcall(check_stats, vim.api.nvim_buf_get_name(bufnr))
-      if ok and stats and stats.size > max_filesize then
-        return true
-      else
-        return false
-      end
-    end
-
-    vim.api.nvim_create_autocmd('BufRead', {
-      group = vim.api.nvim_create_augroup('CmpBufferDisableGrp', { clear = true }),
-      callback = function(ev)
-        local sources = preferred_sources
-        if not tooBig(ev.buf) then
-          sources[#sources + 1] = { name = 'buffer', keyword_length = 4 }
-        end
-        cmp.setup.buffer {
-          sources = cmp.config.sources(sources),
-        }
-      end,
-    })
 
     cmp.setup {
       performance = {
@@ -84,33 +55,45 @@ return {
           luasnip.lsp_expand(args.body)
         end,
       },
-      completion = {
-        completeopt = 'menu,menuone,noinsert',
-      },
       mapping = cmp.mapping.preset.insert {
-        ['<C-n>'] = cmp.mapping.select_next_item(),
-        ['<C-p>'] = cmp.mapping.select_prev_item(),
         ['<C-d>'] = cmp.mapping.scroll_docs(-4),
         ['<C-f>'] = cmp.mapping.scroll_docs(4),
         ['<C-Space>'] = cmp.mapping.complete {},
-        ['<CR>'] = cmp.mapping.confirm {
-          behavior = cmp.ConfirmBehavior.Replace,
-          select = true,
-        },
+        ['<CR>'] = cmp.mapping(function(fallback)
+          if cmp.visible() then
+            if luasnip.expandable() then
+              luasnip.expand()
+            else
+              cmp.confirm {
+                select = true,
+              }
+            end
+          else
+            fallback()
+          end
+        end),
+
         ['<Tab>'] = cmp.mapping(function(fallback)
           if cmp.visible() then
-            cmp.confirm { behavior = cmp.ConfirmBehavior.Insert, select = true }
-          elseif require('copilot.suggestion').is_visible() then
-            require('copilot.suggestion').accept()
-          elseif luasnip.expand_or_locally_jumpable() then
-            luasnip.expand_or_jump()
+            if #cmp.get_entries() == 1 then
+              cmp.confirm { select = true }
+            else
+              cmp.select_next_item()
+            end
+          elseif luasnip.locally_jumpable(1) then
+            luasnip.jump(1)
           else
             fallback()
           end
         end, { 'i', 's' }),
+
         ['<S-Tab>'] = cmp.mapping(function(fallback)
           if cmp.visible() then
-            cmp.select_prev_item()
+            if #cmp.get_entries() == 1 then
+              cmp.confirm { select = true }
+            else
+              cmp.select_prev_item()
+            end
           elseif luasnip.locally_jumpable(-1) then
             luasnip.jump(-1)
           else
@@ -119,6 +102,26 @@ return {
         end, { 'i', 's' }),
       },
     }
+
+    local preferred_sources = cmp.config.sources({
+      { name = 'luasnip' },
+      { name = 'nvim_lsp' },
+    }, {
+      { name = 'path' },
+    })
+
+    vim.api.nvim_create_autocmd('BufRead', {
+      group = vim.api.nvim_create_augroup('CmpBufferDisableGrp', { clear = true }),
+      callback = function(ev)
+        local sources = preferred_sources
+        if not require('utils').isFileToBig(ev.buf) then
+          sources[#sources + 1] = { name = 'buffer', keyword_length = 4 }
+        end
+        cmp.setup.buffer {
+          sources = cmp.config.sources(sources),
+        }
+      end,
+    })
 
     cmp.setup.cmdline({ '/', '?' }, {
       mapping = cmp.mapping.preset.cmdline(),
