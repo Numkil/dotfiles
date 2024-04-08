@@ -2,8 +2,15 @@
 return {
   -- LSP Configuration & Plugins
   'neovim/nvim-lspconfig',
+  dependencies = {
+    -- `neodev` configures Lua LSP for your Neovim config, runtime and plugins
+    -- used for completion, annotations and signatures of Neovim apis
+    'folke/neodev.nvim',
+  },
   event = 'BufEnter',
   config = function()
+    require('neodev').setup {}
+
     --  This function gets run when an LSP connects to a particular buffer.
     vim.api.nvim_create_autocmd('LspAttach', {
       group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
