@@ -24,7 +24,14 @@ return {
   },
   bashls = {},
   -- templating LSP
-  twiggy_language_server = {},
+  twiggy_language_server = {
+    settings = {
+      twiggy = {
+        framework = 'craft',
+        phpExecutable = '/opt/homebrew/bin/php',
+      },
+    },
+  },
   html = {
     filetypes = { 'twig', 'html' },
   },
