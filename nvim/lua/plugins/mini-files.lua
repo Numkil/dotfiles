@@ -14,7 +14,7 @@ return {
 
     require('utils').keymapSet('n', '-', minifiles_toggle, { desc = 'Open current directory as buffer' })
 
-    require('mini.files').setup {
+    MiniFiles.setup {
       use_as_default_explorer = true,
     }
   end,
