@@ -39,7 +39,7 @@ return {
 
     -- [[ Configure nvim-cmp ]]
     -- See `:help cmp`
-    local cmp_status_ok, cmp = pcall(require, 'cmp')
+    local cmp = require 'cmp'
     local luasnip = require 'luasnip'
 
     require('luasnip.loaders.from_vscode').lazy_load()
@@ -58,7 +58,6 @@ return {
       mapping = cmp.mapping.preset.insert {
         ['<C-d>'] = cmp.mapping.scroll_docs(-4),
         ['<C-f>'] = cmp.mapping.scroll_docs(4),
-        ['<C-Space>'] = cmp.mapping.complete {},
         ['<CR>'] = cmp.mapping(function(fallback)
           if cmp.visible() then
             if luasnip.expandable() then
@@ -68,13 +67,17 @@ return {
                 select = true,
               }
             end
-          elseif require('copilot.suggestion').is_visible() then
+          else
+            fallback()
+          end
+        end),
+        ['<C-CR>'] = cmp.mapping(function(fallback)
+          if require('copilot.suggestion').is_visible() then
             require('copilot.suggestion').accept()
           else
             fallback()
           end
         end),
-
         ['<Tab>'] = cmp.mapping(function(fallback)
           if cmp.visible() then
             if #cmp.get_entries() == 1 then
@@ -88,7 +91,6 @@ return {
             fallback()
           end
         end, { 'i', 's' }),
-
         ['<S-Tab>'] = cmp.mapping(function(fallback)
           if cmp.visible() then
             if #cmp.get_entries() == 1 then
@@ -139,15 +141,5 @@ return {
         { name = 'cmdline' },
       },
     })
-
-    if cmp_status_ok then
-      cmp.event:on('menu_opened', function()
-        vim.b.copilot_suggestion_hidden = true
-      end)
-
-      cmp.event:on('menu_closed', function()
-        vim.b.copilot_suggestion_hidden = false
-      end)
-    end
   end,
 }
