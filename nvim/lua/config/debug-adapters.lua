@@ -1,5 +1,5 @@
 -- Enable the following debug adapters
 return {
-  'php',
-  'js',
+  'php-debug-adapter',
+  'js-debug-adapter',
 }

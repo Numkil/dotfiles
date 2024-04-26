@@ -14,12 +14,14 @@ return {
     -- before setting up the servers.
     require('mason').setup()
 
+    -- Ensure all servers and debug adapters are installed
+    local servers = require 'config.lsp-servers'
+    local ensure_installed = vim.tbl_extend('force', vim.tbl_keys(servers), require 'config.debug-adapters')
+    require('mason-tool-installer').setup { ensure_installed = ensure_installed, auto_update = true }
+
     -- nvim-cmp supports additional completion capabilities, so broadcast that to servers
     local capabilities = vim.lsp.protocol.make_client_capabilities()
     capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
-
-    local servers = require 'config.lsp-servers'
-    require('mason-tool-installer').setup { ensure_installed = vim.tbl_keys(servers), auto_update = true }
 
     -- Ensure the servers in 'config.lsp-servers' are installed
     require('mason-lspconfig').setup {
@@ -33,8 +35,6 @@ return {
     }
 
     -- Setup the debug adapters
-    require('mason-nvim-dap').setup {
-      ensure_installed = require 'config.debug-adapters',
-    }
+    require('mason-nvim-dap').setup {}
   end,
 }
