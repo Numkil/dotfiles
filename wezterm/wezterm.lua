@@ -28,7 +28,8 @@ end
 config.color_scheme = "Everforest Light (Gogh)"
 
 -- fonts
-config.font_size = 12.3
+config.font_size = 12.4
+config.line_height = 1.1
 if IS_LINUX then
 	config.font_size = 10
 end
