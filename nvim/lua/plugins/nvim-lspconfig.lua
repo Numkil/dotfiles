@@ -75,6 +75,14 @@ return {
           { 'n', '<leader>K', '<cmd>norm! K<cr>', { desc = 'Run keywordprg' } },
         }, bufnr, 'LSP: ')
 
+        -- Enable inlay hints globaly
+        local client = vim.lsp.get_client_by_id(event.data.client_id)
+        if client and client.supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint) then
+          require('utils').keymapSet('n', '<leader>th', function()
+            vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = bufnr })
+          end, { desc = '[T]oggle Inlay [H]ints' }, bufnr, 'LSP: ')
+        end
+
         -- Create a command `:Format` local to the LSP buffer
         vim.api.nvim_buf_create_user_command(bufnr, 'Format', function(_)
           require('conform').format { bufnr = bufnr }
