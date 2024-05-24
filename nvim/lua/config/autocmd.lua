@@ -61,3 +61,24 @@ vim.api.nvim_create_autocmd('BufEnter', {
     stay_centered(mode.other)
   end,
 })
+
+-- [[ Go into relative numbers only in visual mode ]]
+
+local visual_event_group = vim.api.nvim_create_augroup('visual_event', { clear = true })
+
+vim.api.nvim_create_autocmd('ModeChanged', {
+  group = visual_event_group,
+  pattern = { '*:[vV\x16]*' },
+  callback = function()
+    vim.wo.relativenumber = true
+  end,
+})
+
+vim.api.nvim_create_autocmd('ModeChanged', {
+  group = visual_event_group,
+  pattern = { '[vV\x16]*:*' },
+  callback = function()
+    print 'VisualLeave'
+    vim.wo.relativenumber = false
+  end,
+})
