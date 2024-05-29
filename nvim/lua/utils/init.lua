@@ -38,9 +38,9 @@ M.keymapSetList = function(maps, bufnr, prefix)
 end
 
 -- Check if a file is too big. We disable some plugin functionality if the file is too big
-M.isFileToBig = function(bufnr)
+M.isFileTooBig = function(bufnr)
   local max_filesize = 10 * 1024 -- 100 KB
-  local check_stats = (vim.uv or vim.loop).fs_stat
+  local check_stats = vim.uv.fs_stat
   local ok, stats = pcall(check_stats, vim.api.nvim_buf_get_name(bufnr))
   if ok and stats and stats.size > max_filesize then
     return true

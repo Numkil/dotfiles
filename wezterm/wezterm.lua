@@ -28,8 +28,8 @@ end
 config.color_scheme = "Catppuccin Latte"
 
 -- fonts
-config.font_size = 12.4
-config.line_height = 1.1
+config.font_size = 12.5
+config.line_height = 1
 if IS_LINUX then
 	config.font_size = 10
 end

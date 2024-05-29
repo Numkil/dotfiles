@@ -118,7 +118,7 @@ return {
       group = vim.api.nvim_create_augroup('CmpBufferDisableGrp', { clear = true }),
       callback = function(ev)
         local sources = preferred_sources
-        if not require('utils').isFileToBig(ev.buf) then
+        if not require('utils').isFileTooBig(ev.buf) then
           sources[#sources + 1] = { name = 'buffer', keyword_length = 4 }
         end
         cmp.setup.buffer {

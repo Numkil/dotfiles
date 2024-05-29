@@ -22,8 +22,7 @@ vim.o.clipboard = 'unnamedplus'
 
 -- Fallback tabstop settings when sleuth fails me
 vim.o.expandtab = false
-vim.o.tabstop = 4
-vim.o.shiftwidth = 4
+vim.o.smartindent = true
 
 -- fully disable mouse
 vim.o.mouse = ''
@@ -49,5 +48,5 @@ vim.o.timeoutlen = 300
 -- Set completeopt to have a better completion experience
 vim.o.completeopt = 'menuone,noselect'
 
--- NOTE: You should make sure your terminal supports this
-vim.o.termguicolors = true
+vim.o.splitright = true
+vim.o.splitkeep = 'screen'
