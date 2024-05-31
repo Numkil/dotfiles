@@ -71,7 +71,7 @@ return {
           },
           -- See `:help K` for why this keymap
           { 'n', 'K', vim.lsp.buf.hover, { desc = 'Hover Documentation' } },
-          { { 'n', 'i' }, '<c-k>', vim.lsp.buf.signature_help, { desc = 'Signature Documentation' } },
+          { { 'n', 'i' }, '<leader>k', vim.lsp.buf.signature_help, { desc = 'Signature Documentation' } },
           { 'n', '<leader>K', '<cmd>norm! K<cr>', { desc = 'Run keywordprg' } },
         }, bufnr, 'LSP: ')
 

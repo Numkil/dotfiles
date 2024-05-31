@@ -33,7 +33,7 @@ M.keymapSetList = function(maps, bufnr, prefix)
   end
 
   for key, value in pairs(maps) do
-    M.keymapSet(value[1], value[2], value[3], value[4] or nil, bufnr, prefix)
+    require('utils').keymapSet(value[1], value[2], value[3], value[4] or nil, bufnr, prefix)
   end
 end
 

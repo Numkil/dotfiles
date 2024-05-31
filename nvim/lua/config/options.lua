@@ -48,5 +48,9 @@ vim.o.timeoutlen = 300
 -- Set completeopt to have a better completion experience
 vim.o.completeopt = 'menuone,noselect'
 
+-- configure splits
 vim.o.splitright = true
 vim.o.splitkeep = 'screen'
+
+-- highlight cursor position
+vim.o.cursorline = true
