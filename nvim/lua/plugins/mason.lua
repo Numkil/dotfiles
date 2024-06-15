@@ -15,8 +15,9 @@ return {
     require('mason').setup()
 
     -- Ensure all servers and debug adapters are installed
-    local servers = require 'config.lsp-servers'
-    local ensure_installed = vim.tbl_extend('force', vim.tbl_keys(servers), require 'config.debug-adapters')
+    local servers = require('utils.external-tools').lsps
+    local ensure_installed = vim.tbl_extend('force', vim.tbl_keys(servers),
+      require('utils.external-tools').debug_adapters)
     require('mason-tool-installer').setup { ensure_installed = ensure_installed, auto_update = true }
 
     -- nvim-cmp supports additional completion capabilities, so broadcast that to servers

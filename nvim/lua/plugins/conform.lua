@@ -12,18 +12,7 @@ local opts = {
     },
   },
   formatters_by_ft = {
-    javascript = { 'prettierd', 'prettier' },
-    typescript = { 'prettierd', 'prettier' },
-    html = { 'prettierd', 'prettier' },
-    twig = { 'ludtwig' },
-    css = { 'prettierd', 'prettier' },
-    scss = { 'prettierd', 'prettier' },
-    less = { 'prettierd', 'prettier' },
-    json = { 'prettierd', 'prettier' },
-    yaml = { 'prettierd', 'prettier' },
-    rust = { 'rustfmt' },
-    lua = { 'stylua' },
-    php = { 'php_cs_fixer' },
+    require('utils.external-tools').formatters_by_ft,
   },
   format_on_save = function(bufnr)
     -- Disable autoformat on certain filetypes

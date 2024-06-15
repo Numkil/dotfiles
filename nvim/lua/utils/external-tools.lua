@@ -1,5 +1,6 @@
--- Enable the following language servers
-return {
+local M = {}
+
+M.lsps = {
   -- scripting LSP
   phpactor = {
     init_options = {
@@ -42,3 +43,48 @@ return {
     filetypes = { 'twig', 'html' },
   },
 }
+
+M.debug_adapters = {
+  'php-debug-adapter',
+  'js-debug-adapter',
+}
+
+M.formatters_by_ft = {
+  javascript = { 'prettierd', 'prettier' },
+  typescript = { 'prettierd', 'prettier' },
+  html = { 'prettierd', 'prettier' },
+  twig = { 'ludtwig' },
+  css = { 'prettierd', 'prettier' },
+  scss = { 'prettierd', 'prettier' },
+  less = { 'prettierd', 'prettier' },
+  json = { 'prettierd', 'prettier' },
+  yaml = { 'prettierd', 'prettier' },
+  rust = { 'rustfmt' },
+  lua = { 'stylua' },
+  php = { 'php_cs_fixer' },
+}
+
+M.parsers = {
+  'php_only',
+  'php',
+  'lua',
+  'twig',
+  'html',
+  'json',
+  'markdown',
+  'typescript',
+  'javascript',
+  'tsx',
+  'vimdoc',
+  'vim',
+  'regex',
+  'markdown_inline',
+  'css',
+  'comment',
+  'query',
+  'gitcommit',
+  'gitignore',
+  'regex',
+}
+
+return M
