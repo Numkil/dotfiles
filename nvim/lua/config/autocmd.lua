@@ -29,16 +29,15 @@ vim.api.nvim_create_autocmd('BufRead', {
 })
 
 -- [[ Keep cursor centered ]]
-local mode = { insert = 'insert', other = 'other' }
-local function stay_centered(myMode)
-  local line = vim.api.nvim_win_get_cursor(0)[1]
+local function stay_centered()
+  -- Get the current cursor position
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local line = cursor[1]
   if line ~= vim.b.last_line then
-    vim.cmd 'norm! zz'
-    vim.b.last_line = line
-    if myMode == mode.insert then
-      local column = vim.fn.getcurpos()[5]
-      vim.fn.cursor { line, column }
-    end
+    -- Center the screen around the cursor
+    vim.api.nvim_command 'normal! zz'
+    -- Restore the cursor position
+    vim.api.nvim_win_set_cursor(0, cursor)
   end
 end
 
@@ -46,26 +45,24 @@ local centerGroup = vim.api.nvim_create_augroup('StayCentered', { clear = true }
 vim.api.nvim_create_autocmd('CursorMovedI', {
   group = centerGroup,
   callback = function()
-    stay_centered(mode.insert)
+    stay_centered()
   end,
 })
 vim.api.nvim_create_autocmd('CursorMoved', {
   group = centerGroup,
   callback = function()
-    stay_centered(mode.other)
+    stay_centered()
   end,
 })
 vim.api.nvim_create_autocmd('BufEnter', {
   group = centerGroup,
   callback = function()
-    stay_centered(mode.other)
+    stay_centered()
   end,
 })
 
 -- [[ Go into relative numbers only in visual mode ]]
-
 local visual_event_group = vim.api.nvim_create_augroup('visual_event', { clear = true })
-
 vim.api.nvim_create_autocmd('ModeChanged', {
   group = visual_event_group,
   pattern = { '*:[vV\x16]*' },

@@ -22,19 +22,13 @@ return {
     'rafamadriz/friendly-snippets',
 
     -- copilot integration
-    'zbirenbaum/copilot.lua',
+    'supermaven-inc/supermaven-nvim',
   },
   config = function()
-    -- [[ Configure copilot ]]
-    require('copilot').setup {
-      panel = {
-        enabled = true,
-        auto_refresh = true,
-      },
-      suggestion = {
-        enabled = true,
-        auto_trigger = true,
-      },
+    -- [[ Configure supermaven ]]
+    require('supermaven-nvim').setup {
+      disable_inline_completion = false, -- disables inline completion for use with cmp
+      disable_keymaps = true, -- disables built in keymaps for more manual control
     }
 
     -- [[ Configure nvim-cmp ]]
@@ -72,8 +66,8 @@ return {
           end
         end),
         ['<C-CR>'] = cmp.mapping(function(fallback)
-          if require('copilot.suggestion').is_visible() then
-            require('copilot.suggestion').accept()
+          if require('supermaven-nvim.completion_preview').has_suggestion() then
+            require('supermaven-nvim.completion_preview').on_accept_suggestion()
           else
             fallback()
           end
