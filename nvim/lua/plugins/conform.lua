@@ -11,9 +11,7 @@ local opts = {
       stdin = false,
     },
   },
-  formatters_by_ft = {
-    require('utils.external-tools').formatters_by_ft,
-  },
+  formatters_by_ft = require('utils.external-tools').formatters_by_ft,
   format_on_save = function(bufnr)
     -- Disable autoformat on certain filetypes
     local ignore_filetypes = { 'sql' }
