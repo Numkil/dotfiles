@@ -12,7 +12,7 @@ M.lsps = {
       ['language_server_phpstan.enabled'] = false,
     },
   },
-  tsserver = {},
+  vtsls = {},
   lua_ls = {
     settings = {
       Lua = {
