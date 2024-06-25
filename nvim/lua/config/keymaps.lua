@@ -24,8 +24,6 @@ require('utils').keymapSetList {
   { 'v', '>', '>gv', { desc = 'Shift rightt without exiting V' } },
   -- Diagnostic keymaps
   { 'n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostics list' } },
-  -- Open lazygit integration
-  { 'n', '<leader>lg', '<cmd>LazyGit<CR>', { desc = 'Open LazyGit' } },
   -- Clear notifications and search
   {
     'n',
