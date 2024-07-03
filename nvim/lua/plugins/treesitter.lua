@@ -20,7 +20,7 @@ return {
 
       -- Autoinstall languages that are not installed. Defaults to false (but you can change for yourself!)
       auto_install = true,
-      ignore_install = { 'help', 'Starter' },
+      ignore_install = { 'help', 'ministarter' },
 
       highlight = { enable = true },
       indent = { enable = true },
