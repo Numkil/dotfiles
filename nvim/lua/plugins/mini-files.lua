@@ -2,7 +2,7 @@ return {
   'echasnovski/mini.files',
   keys = { '-' },
   dependencies = {
-    'nvim-tree/nvim-web-devicons',
+    'echasnovski/mini.icons',
   },
   config = function()
     local MiniFiles = require 'mini.files'

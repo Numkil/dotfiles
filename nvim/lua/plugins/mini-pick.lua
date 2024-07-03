@@ -7,7 +7,7 @@ return {
     -- Project.nvim sorts out your current working directory while searching
     'ahmedkhalf/project.nvim',
     -- nice icons
-    'nvim-tree/nvim-web-devicons',
+    'echasnovski/mini.icons',
   },
   config = function()
     -- automagically makes sure cwd and paths are set correctly
