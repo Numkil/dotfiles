@@ -6,7 +6,6 @@ return {
     -- `neodev` configures Lua LSP for your Neovim config, runtime and plugins
     -- used for completion, annotations and signatures of Neovim apis
     'folke/lazydev.nvim',
-    'Wansmer/symbol-usage.nvim',
   },
   event = 'BufEnter',
   config = function()
@@ -33,9 +32,6 @@ return {
       return table.concat(fragments, ', ') .. stacked_functions
     end
 
-    require('symbol-usage').setup {
-      text_format = text_format,
-    }
     require('lazydev').setup {}
 
     --  This function gets run when an LSP connects to a particular buffer.

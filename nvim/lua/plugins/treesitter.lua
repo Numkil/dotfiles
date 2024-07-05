@@ -5,6 +5,7 @@ return {
   dependencies = {
     'nvim-treesitter/nvim-treesitter-context',
     'nvim-treesitter/nvim-treesitter-textobjects',
+    'JoosepAlviste/nvim-ts-context-commentstring',
     'andymass/vim-matchup',
   },
   build = ':TSUpdate',
@@ -81,5 +82,14 @@ return {
         enable = true,
       },
     }
+
+    require('ts_context_commentstring').setup {
+      enable_autocmd = false,
+    }
+
+    local get_option_function = vim.filetype.get_option
+    vim.filetype.get_option = function(filetype, option)
+      return option == 'commentstring' and require('ts_context_commentstring.internal').calculate_commentstring() or get_option_function(filetype, option)
+    end
   end,
 }
