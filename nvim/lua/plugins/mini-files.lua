@@ -1,6 +1,7 @@
 return {
   'echasnovski/mini.files',
-  keys = { '-' },
+  lazy = false, --- NOTE: Important that this plugin loads on startup so it works as file explorer
+  priority = 1000, --- when opening a directory instead of a file
   dependencies = {
     'echasnovski/mini.icons',
   },
