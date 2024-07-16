@@ -56,7 +56,7 @@ vim.o.splitkeep = 'screen'
 vim.o.cursorline = true
 
 vim.diagnostic.config {
-  virtual_text = true,
+  virtual_text = false,
   signs = {
     text = {
       [vim.diagnostic.severity.ERROR] = '✘',

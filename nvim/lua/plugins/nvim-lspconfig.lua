@@ -6,6 +6,7 @@ return {
     -- `neodev` configures Lua LSP for your Neovim config, runtime and plugins
     -- used for completion, annotations and signatures of Neovim apis
     'folke/lazydev.nvim',
+    'https://git.sr.ht/~whynothugo/lsp_lines.nvim',
   },
   event = 'BufEnter',
   config = function()
@@ -33,6 +34,7 @@ return {
     end
 
     require('lazydev').setup {}
+    require('lsp_lines').setup {}
 
     --  This function gets run when an LSP connects to a particular buffer.
     vim.api.nvim_create_autocmd('LspAttach', {

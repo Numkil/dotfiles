@@ -89,7 +89,7 @@ function sshtolive(){
 function setupproject(){
     if [ -n $1 ]; then
         echo "Cloning project"
-        git clone git@statik.git.beanstalkapp.com:/statik/$1.git
+        git clone git@bitbucket.org:statikbe/$1.git
         cd $1
         echo "Moving database file from downloads to dedicated folder"
         mkdir -p ~/.databases/mysql/$1
