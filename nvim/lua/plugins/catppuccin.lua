@@ -1,12 +1,12 @@
 return {
-  'catppuccin/nvim',
+  'neanias/everforest-nvim',
   lazy = false,
   priority = 1000,
   config = function()
     vim.o.background = 'light'
 
-    require('catppuccin').setup()
+    require('everforest').setup()
 
-    vim.cmd.colorscheme 'catppuccin'
+    vim.cmd.colorscheme 'everforest'
   end,
 }
