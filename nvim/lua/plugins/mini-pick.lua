@@ -24,7 +24,6 @@ return {
         anchor = 'NW',
         height = height,
         width = width,
-        border = 'double',
         row = math.floor(0.5 * (vim.o.lines - height)),
         col = math.floor(0.5 * (vim.o.columns - width)),
       }
