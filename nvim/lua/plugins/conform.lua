@@ -31,6 +31,7 @@ local opts = {
 
 return {
   'stevearc/conform.nvim',
+  cmd = { 'ConformInfo' },
   event = 'BufWritePre',
   config = function()
     require('conform').setup(opts)

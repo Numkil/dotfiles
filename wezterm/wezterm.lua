@@ -12,17 +12,11 @@ end
 -- Pull in the wezterm API
 local wezterm = require("wezterm")
 local act = wezterm.action
--- This table will hold the configuration.
-local config = {}
+-- The wezterm config_builder will help provide clearer error messages
+local config = wezterm.config_builder()
 
 local os_name = _run_command("uname")
-local IS_LINUX = os_name ~= "Darwin"
-
--- In newer versions of wezterm, use the config_builder which will
--- help provide clearer error messages
-if wezterm.config_builder then
-	config = wezterm.config_builder()
-end
+local is_linux = os_name ~= "Darwin"
 
 -- color scheme
 config.color_scheme = "Everforest Light (Gogh)"
@@ -30,7 +24,7 @@ config.color_scheme = "Everforest Light (Gogh)"
 -- fonts
 config.font_size = 12.5
 config.line_height = 1
-if IS_LINUX then
+if is_linux then
 	config.font_size = 10
 end
 config.font = wezterm.font_with_fallback({

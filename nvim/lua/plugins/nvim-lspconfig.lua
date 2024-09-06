@@ -3,9 +3,18 @@ return {
   -- LSP Configuration & Plugins
   'neovim/nvim-lspconfig',
   dependencies = {
-    -- `neodev` configures Lua LSP for your Neovim config, runtime and plugins
+    -- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
     -- used for completion, annotations and signatures of Neovim apis
-    'folke/lazydev.nvim',
+    {
+      'folke/lazydev.nvim',
+      opts = {
+        library = {
+          -- Load luvit types when the `vim.uv` word is found
+          { path = 'luvit-meta/library', words = { 'vim%.uv' } },
+        },
+      },
+    },
+    'Bilal2453/luvit-meta',
     'https://git.sr.ht/~whynothugo/lsp_lines.nvim',
   },
   event = 'BufEnter',
@@ -34,7 +43,7 @@ return {
     end
 
     require('lazydev').setup {}
-    require('lsp_lines').setup {}
+    require('lsp_lines').setup()
 
     --  This function gets run when an LSP connects to a particular buffer.
     vim.api.nvim_create_autocmd('LspAttach', {
@@ -45,7 +54,7 @@ return {
 
         require('utils').keymapSetList({
           { 'n', '<leader>rn', vim.lsp.buf.rename, { desc = '[R]e[n]ame' } },
-          { 'n', '<leader>ca', vim.lsp.buf.code_action, { desc = '[C]ode [A]ction' } },
+          { { 'n', 'x' }, '<leader>ca', vim.lsp.buf.code_action, { desc = '[C]ode [A]ction' } },
           {
             'n',
             'gD',
