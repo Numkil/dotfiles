@@ -29,8 +29,15 @@ require('utils').keymapSetList {
     'n',
     '<Esc>',
     function()
-      vim.cmd 'Noice dismiss'
-      vim.cmd 'nohl'
+      local mc = require 'multicursor-nvim'
+
+      if not mc.cursorsEnabled() then
+        mc.enableCursors()
+      elseif mc.hasCursors() then
+        mc.clearCursors()
+        vim.cmd 'Noice dismiss'
+        vim.cmd 'nohl'
+      end
     end,
     { desc = 'Clear notifications and search' },
   },

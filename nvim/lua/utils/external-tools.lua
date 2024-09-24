@@ -13,7 +13,7 @@ M.lsps = {
       ['language_server_phpstan.enabled'] = true,
     },
   },
-  vtsls = {},
+  vtsls = { filetypes = { 'javascript', 'typescript', 'vue' } },
   lua_ls = {
     settings = {
       Lua = {
