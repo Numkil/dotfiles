@@ -33,7 +33,7 @@ local function stay_centered()
   -- Get the current cursor position
   local cursor = vim.api.nvim_win_get_cursor(0)
   local line = cursor[1]
-  if vim.bo.filetype ~= 'oil' then
+  if vim.bo.filetype ~= 'minifiles' then
     if line ~= vim.b.last_line then
       -- Center the screen around the cursor
       vim.api.nvim_command 'normal! zz'

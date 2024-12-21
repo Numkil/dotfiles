@@ -61,6 +61,11 @@ M.lsps = {
   },
 }
 
+M.debug_adapters = {
+  'php-debug-adapter',
+  'js-debug-adapter',
+}
+
 M.formatters_by_ft = {
   javascript = { 'prettierd', 'prettier' },
   typescript = { 'prettierd', 'prettier' },

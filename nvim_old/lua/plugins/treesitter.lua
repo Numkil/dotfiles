@@ -21,8 +21,7 @@ return {
 
       -- Autoinstall languages that are not installed. Defaults to false (but you can change for yourself!)
       auto_install = true,
-      sync_install = false,
-      ignore_install = { 'help' },
+      ignore_install = { 'help', 'ministarter' },
 
       highlight = { enable = true },
       indent = { enable = true },
@@ -90,8 +89,7 @@ return {
 
     local get_option_function = vim.filetype.get_option
     vim.filetype.get_option = function(filetype, option)
-      return option == 'commentstring' and require('ts_context_commentstring.internal').calculate_commentstring() or
-          get_option_function(filetype, option)
+      return option == 'commentstring' and require('ts_context_commentstring.internal').calculate_commentstring() or get_option_function(filetype, option)
     end
   end,
 }

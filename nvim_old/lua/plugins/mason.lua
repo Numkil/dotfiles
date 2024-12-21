@@ -5,6 +5,9 @@ return {
     -- Automatically install LSPs to stdpath for neovim
     'williamboman/mason-lspconfig.nvim',
     'WhoIsSethDaniel/mason-tool-installer.nvim',
+
+    -- Installs debug adapters for you
+    'jay-babu/mason-nvim-dap.nvim',
   },
   config = function()
     -- mason-lspconfig requires that these setup functions are called in this order
@@ -13,7 +16,8 @@ return {
 
     -- Ensure all servers and debug adapters are installed
     local servers = require('utils.external-tools').lsps
-    local ensure_installed = vim.tbl_keys(servers)
+    local ensure_installed = vim.tbl_extend('force', vim.tbl_keys(servers),
+      require('utils.external-tools').debug_adapters)
     require('mason-tool-installer').setup { ensure_installed = ensure_installed, auto_update = true }
 
     -- nvim-cmp supports additional completion capabilities, so broadcast that to servers
@@ -30,5 +34,8 @@ return {
         end,
       },
     }
+
+    -- Setup the debug adapters
+    require('mason-nvim-dap').setup {}
   end,
 }

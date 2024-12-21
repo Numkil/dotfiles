@@ -19,6 +19,29 @@ return {
   },
   event = 'BufEnter',
   config = function()
+    local function text_format(symbol)
+      local fragments = {}
+
+      -- Indicator that shows if there are any other symbols in the same line
+      local stacked_functions = symbol.stacked_count > 0 and (' | +%s'):format(symbol.stacked_count) or ''
+
+      if symbol.references then
+        local usage = symbol.references <= 1 and 'usage' or 'usages'
+        local num = symbol.references == 0 and 'no' or symbol.references
+        table.insert(fragments, ('%s %s'):format(num, usage))
+      end
+
+      if symbol.definition then
+        table.insert(fragments, symbol.definition .. ' defs')
+      end
+
+      if symbol.implementation then
+        table.insert(fragments, symbol.implementation .. ' impls')
+      end
+
+      return table.concat(fragments, ', ') .. stacked_functions
+    end
+
     require('lazydev').setup {}
     require('lsp_lines').setup()
 
@@ -26,46 +49,64 @@ return {
     vim.api.nvim_create_autocmd('LspAttach', {
       group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
       callback = function(event)
-        local builtin = require('telescope.builtin')
+        local MiniExtra = require 'mini.extra'
         local bufnr = event.buf
 
         require('utils').keymapSetList({
-          { 'n',          '<leader>rn', vim.lsp.buf.rename,      { desc = '[R]e[n]ame' } },
+          { 'n', '<leader>rn', vim.lsp.buf.rename, { desc = '[R]e[n]ame' } },
           { { 'n', 'x' }, '<leader>ca', vim.lsp.buf.code_action, { desc = '[C]ode [A]ction' } },
           {
             'n',
+            'gD',
+            function()
+              MiniExtra.pickers.lsp { scope = 'declaration' }
+            end,
+            { desc = '[G]oto [D]eclaration' },
+          },
+          {
+            'n',
             'gd',
-            builtin.lsp_definitions,
+            function()
+              MiniExtra.pickers.lsp { scope = 'definition' }
+            end,
             { desc = '[G]oto [D]efinition' },
           },
           {
             'n',
             '<leader>ds',
-            builtin.lsp_document_symbols,
+            function()
+              MiniExtra.pickers.lsp { scope = 'document_symbol' }
+            end,
             { desc = '[D]ocument [S]ymbols' },
           },
           {
             'n',
             'gI',
-            builtin.lsp_implementations,
+            function()
+              MiniExtra.pickers.lsp { scope = 'implementation' }
+            end,
             { desc = '[G]oto [I]mplementation' },
           },
           {
             'n',
             'gr',
-            builtin.lsp_references,
+            function()
+              MiniExtra.pickers.lsp { scope = 'references' }
+            end,
             { desc = '[G]oto [R]eferences' },
           },
           {
             'n',
             '<leader>D',
-            builtin.lsp_type_definitions,
+            function()
+              MiniExtra.pickers.lsp { scope = 'type_definition' }
+            end,
             { desc = 'Type [D]efinition' },
           },
           -- See `:help K` for why this keymap
-          { 'n',          'K',         vim.lsp.buf.hover,          { desc = 'Hover Documentation' } },
+          { 'n', 'K', vim.lsp.buf.hover, { desc = 'Hover Documentation' } },
           { { 'n', 'i' }, '<leader>k', vim.lsp.buf.signature_help, { desc = 'Signature Documentation' } },
-          { 'n',          '<leader>K', '<cmd>norm! K<cr>',         { desc = 'Run keywordprg' } },
+          { 'n', '<leader>K', '<cmd>norm! K<cr>', { desc = 'Run keywordprg' } },
         }, bufnr, 'LSP: ')
 
         -- Enable inlay hints globaly

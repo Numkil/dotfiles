@@ -1,6 +1,6 @@
 ---@class utils
----@field keymapSet fun(mode: string, keys: string, func: function|string, opts: any, bufnr?: number, prefix?: string)
----@field keymapSetList fun(maps: table|function, bufnr?: number, prefix?: string)
+---@field keymapSet fun(mode: string, keys: string, func: function, opts: any, bufnr?: number, prefix?: string)
+---@field keymapSetList fun(maps: table, bufnr?: number, prefix?: string)
 M = {}
 
 -- Wrapper around keymap.set to allow for extra functionality
