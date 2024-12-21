@@ -26,11 +26,11 @@ return {
     vim.api.nvim_create_autocmd('LspAttach', {
       group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
       callback = function(event)
-        local builtin = require('telescope.builtin')
+        local builtin = require 'fzf-lua'
         local bufnr = event.buf
 
         require('utils').keymapSetList({
-          { 'n',          '<leader>rn', vim.lsp.buf.rename,      { desc = '[R]e[n]ame' } },
+          { 'n', '<leader>rn', vim.lsp.buf.rename, { desc = '[R]e[n]ame' } },
           { { 'n', 'x' }, '<leader>ca', vim.lsp.buf.code_action, { desc = '[C]ode [A]ction' } },
           {
             'n',
@@ -59,13 +59,13 @@ return {
           {
             'n',
             '<leader>D',
-            builtin.lsp_type_definitions,
+            builtin.lsp_typedefs,
             { desc = 'Type [D]efinition' },
           },
           -- See `:help K` for why this keymap
-          { 'n',          'K',         vim.lsp.buf.hover,          { desc = 'Hover Documentation' } },
+          { 'n', 'K', vim.lsp.buf.hover, { desc = 'Hover Documentation' } },
           { { 'n', 'i' }, '<leader>k', vim.lsp.buf.signature_help, { desc = 'Signature Documentation' } },
-          { 'n',          '<leader>K', '<cmd>norm! K<cr>',         { desc = 'Run keywordprg' } },
+          { 'n', '<leader>K', '<cmd>norm! K<cr>', { desc = 'Run keywordprg' } },
         }, bufnr, 'LSP: ')
 
         -- Enable inlay hints globaly
