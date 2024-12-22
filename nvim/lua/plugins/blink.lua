@@ -31,6 +31,7 @@ return {
 
     sources = {
       default = { 'lsp', 'path', 'snippets', 'buffer' },
+      min_keyword_length = 3,
     },
   },
   opts_extend = { 'sources.default' },
