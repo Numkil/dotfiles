@@ -4,6 +4,9 @@ return {
     "nvim-tree/nvim-web-devicons",
   },
   config = function()
-    require('lualine').setup()
+    require('lualine').setup {
+      options = { theme = 'everforest' },
+      extensions = { 'fzf', 'lazy', 'mason', 'man', 'oil' }
+    }
   end,
 }
