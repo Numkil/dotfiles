@@ -14,6 +14,6 @@ return {
   config = function()
     require('todo-comments').setup(opts)
 
-    require('utils').keymapSet('n', '<leader>st', ':TodoTelescope<CR>', { desc = '[S]earch [Todos]' })
+    require('utils').keymapSet('n', '<leader>st', ':TodoFzfLua<CR>', { desc = '[S]earch [Todos]' })
   end,
 }
