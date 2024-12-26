@@ -23,6 +23,7 @@ brew install bash_completion@2
 brew install thefuck
 brew install lsd
 brew install ripgrep
+brew install fzf
 brew install starship
 brew install neovim
 brew install tldr
