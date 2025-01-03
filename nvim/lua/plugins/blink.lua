@@ -2,7 +2,7 @@ return {
   'saghen/blink.cmp',
   event = { 'BufReadPre', 'BufNewFile' },
   -- optional: provides snippets for the snippet source
-  dependencies = 'rafamadriz/friendly-snippets',
+  dependencies = { 'rafamadriz/friendly-snippets' },
 
   -- use a release tag to download pre-built binaries
   version = '*',
@@ -19,19 +19,19 @@ return {
     },
     keymap = {
       preset = 'enter',
-      ["<Tab>"] = {
+      ['<Tab>'] = {
         function(cmp)
           return cmp.select_next()
         end,
-        "snippet_forward",
-        "fallback",
+        'snippet_forward',
+        'fallback',
       },
-      ["<S-Tab>"] = {
+      ['<S-Tab>'] = {
         function(cmp)
           return cmp.select_prev()
         end,
-        "snippet_backward",
-        "fallback",
+        'snippet_backward',
+        'fallback',
       },
     },
 
@@ -41,11 +41,23 @@ return {
 
     signature = {
       enabled = true,
-      window = { border = "rounded" },
+      window = { border = 'rounded' },
     },
 
     sources = {
       default = { 'lsp', 'path', 'snippets', 'buffer' },
+      cmdline = function()
+        local type = vim.fn.getcmdtype()
+        -- Search forward and backward
+        if type == '/' or type == '?' then
+          return {}
+        end
+        -- Commands
+        if type == ':' or type == '@' then
+          return { 'cmdline' }
+        end
+        return {}
+      end,
       providers = {
         cmdline = {
           min_keyword_length = 3,
@@ -53,8 +65,8 @@ return {
         buffer = {
           min_keyword_length = 3,
           max_items = 5,
-        }
-      }
+        },
+      },
     },
   },
   opts_extend = { 'sources.default' },
