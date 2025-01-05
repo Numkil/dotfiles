@@ -56,9 +56,6 @@ M.lsps = {
   tailwindcss = {
     filetypes = { 'twig', 'html' },
   },
-  htmx = {
-    filetypes = { 'twig', 'html' },
-  },
 }
 
 M.formatters_by_ft = {
