@@ -9,15 +9,6 @@ return {
   config = function()
     -- calling `setup` is optional for customization
     require('fzf-lua').setup {
-      fzf_opts = {
-        ['--no-scrollbar'] = true,
-      },
-      defaults = {
-        formatter = 'path.filename_first',
-        cwd_prompt = false,
-        prompt = '> ',
-        file_icons = true,
-      },
       winopts = {
         height = 0.7,
         width = 0.7,
