@@ -9,6 +9,9 @@ return {
       sections = {
         -- Add the macro recording status in the mode section
         lualine_b = {
+          'branch',
+          'diff',
+          'diagnostics',
           {
             'macro',
             fmt = function()
