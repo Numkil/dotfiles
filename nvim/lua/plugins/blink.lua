@@ -58,11 +58,24 @@ return {
       end,
       providers = {
         cmdline = {
+          min_keyword_length = 4,
+          score_offset = 4,
+        },
+        snippets = {
+          min_keyword_length = 2,
+          score_offset = 4,
+        },
+        lsp = {
           min_keyword_length = 3,
+          score_offset = 3,
+        },
+        path = {
+          min_keyword_length = 3,
+          score_offset = 2,
         },
         buffer = {
           min_keyword_length = 3,
-          max_items = 5,
+          score_offset = 1,
         },
       },
     },
