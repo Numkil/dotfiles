@@ -26,12 +26,15 @@ return {
           },
         },
         lualine_x = {
-          function()
-            return require('lazydo').get_lualine_stats()
-          end,
-          cond = function()
-            return require('lazydo')._initialized
-          end,
+          {
+            'lazydo',
+            fmt = function()
+              return require('lazydo').get_lualine_stats()
+            end,
+            cond = function()
+              return require('lazydo')._initialized
+            end,
+          },
         },
       },
       extensions = { 'fzf', 'lazy', 'mason', 'man', 'oil' },
