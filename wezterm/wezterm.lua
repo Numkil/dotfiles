@@ -28,7 +28,7 @@ if is_linux then
 	config.font_size = 10
 end
 config.font = wezterm.font_with_fallback({
-	{ family = "Hack Nerd Font Mono", weight = "Medium" },
+	"Monaspace Neon",
 	"JetBrains Mono",
 })
 
