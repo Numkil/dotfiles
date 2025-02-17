@@ -41,10 +41,8 @@ return {
         'fallback',
       },
     },
-    snippets = { preset = 'luasnip' },
-    sources = {
-      default = { 'lsp', 'path', 'snippets', 'buffer', 'lazydev' },
-      cmdline = function()
+    cmdline = {
+      sources = function()
         local type = vim.fn.getcmdtype()
         -- Search forward and backward
         if type == '/' or type == '?' then
@@ -56,6 +54,10 @@ return {
         end
         return {}
       end,
+    },
+    snippets = { preset = 'luasnip' },
+    sources = {
+      default = { 'lsp', 'path', 'snippets', 'buffer', 'lazydev' },
       providers = {
         lazydev = {
           name = 'LazyDev',

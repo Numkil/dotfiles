@@ -26,6 +26,7 @@ return {
       },
     },
     bigfile = {},
+    git = {},
     indent = {},
     input = {},
     scope = {},
