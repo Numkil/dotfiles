@@ -16,6 +16,7 @@ return {
       },
     },
     'Bilal2453/luvit-meta',
+    'rachartier/tiny-code-action.nvim',
     'https://git.sr.ht/~whynothugo/lsp_lines.nvim',
   },
   event = 'BufEnter',
@@ -32,7 +33,14 @@ return {
 
         require('utils').keymapSetList({
           { 'n', '<leader>rn', vim.lsp.buf.rename, { desc = '[R]e[n]ame' } },
-          { { 'n', 'x' }, '<leader>ca', vim.lsp.buf.code_action, { desc = '[C]ode [A]ction' } },
+          {
+            { 'n', 'x' },
+            '<leader>ca',
+            function()
+              require('tiny-code-action').code_action()
+            end,
+            { desc = '[C]ode [A]ction' },
+          },
           {
             'n',
             'gd',
