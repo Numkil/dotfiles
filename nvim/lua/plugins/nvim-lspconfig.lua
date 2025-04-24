@@ -61,7 +61,7 @@ return {
           },
           {
             'n',
-            'gr',
+            'gR',
             builtin.lsp_references,
             { desc = '[G]oto [R]eferences' },
           },
