@@ -55,8 +55,15 @@ vim.o.splitkeep = 'screen'
 -- highlight cursor position
 vim.o.cursorline = true
 
+-- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
+-- instead raise a dialog asking if you wish to save the current file(s)
+-- See `:help 'confirm'`
+vim.opt.confirm = true
+
 vim.diagnostic.config {
-  virtual_text = false,
+  severity_sort = true,
+  underline = { severity = vim.diagnostic.severity.ERROR },
+  float = { border = 'rounded', source = 'if_many' },
   signs = {
     text = {
       [vim.diagnostic.severity.ERROR] = '✘',
@@ -64,5 +71,18 @@ vim.diagnostic.config {
       [vim.diagnostic.severity.HINT] = '⚑',
       [vim.diagnostic.severity.INFO] = '»',
     },
+  },
+  virtual_text = {
+    source = 'if_many',
+    spacing = 2,
+    format = function(diagnostic)
+      local diagnostic_message = {
+        [vim.diagnostic.severity.ERROR] = diagnostic.message,
+        [vim.diagnostic.severity.WARN] = diagnostic.message,
+        [vim.diagnostic.severity.INFO] = diagnostic.message,
+        [vim.diagnostic.severity.HINT] = diagnostic.message,
+      }
+      return diagnostic_message[diagnostic.severity]
+    end,
   },
 }

@@ -15,7 +15,6 @@ return {
         },
       },
     },
-    'Bilal2453/luvit-meta',
     'rachartier/tiny-code-action.nvim',
     'https://git.sr.ht/~whynothugo/lsp_lines.nvim',
   },
@@ -79,7 +78,7 @@ return {
 
         -- Enable inlay hints globaly
         local client = vim.lsp.get_client_by_id(event.data.client_id)
-        if client and client.supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint) then
+        if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint) then
           require('utils').keymapSet('n', '<leader>th', function()
             vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = bufnr })
           end, { desc = '[T]oggle Inlay [H]ints' }, bufnr, 'LSP: ')
