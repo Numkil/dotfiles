@@ -19,7 +19,7 @@ local os_name = _run_command("uname")
 local is_linux = os_name ~= "Darwin"
 
 -- color scheme
-config.color_scheme = "Everforest Light (Gogh)"
+config.color_scheme = "Everforest Dark Hard (Gogh)"
 
 -- fonts
 config.font_size = 12.5

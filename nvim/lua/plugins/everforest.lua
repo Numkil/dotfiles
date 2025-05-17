@@ -3,9 +3,13 @@ return {
   lazy = false,
   priority = 1000,
   config = function()
-    vim.o.background = 'light'
+    vim.o.background = 'dark'
 
-    require('everforest').setup()
+    ---@diagnostic disable-next-line: missing-fields
+    require('everforest').setup {
+      background = 'hard',
+      dim_inactive_windows = true,
+    }
 
     vim.cmd.colorscheme 'everforest'
   end,
