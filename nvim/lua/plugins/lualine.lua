@@ -5,7 +5,7 @@ return {
   },
   config = function()
     require('lualine').setup {
-      options = { theme = 'everforest' },
+      options = { theme = 'solarized' },
       sections = {
         -- Add the macro recording status in the mode section
         lualine_b = {

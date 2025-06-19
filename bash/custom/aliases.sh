@@ -16,8 +16,8 @@ alias lsa="lsd -lArt"
 alias lst="lsd -A --tree"
 alias tree="lst"
 #Force nvim instead of vim
-alias vim="env TERM=wezterm nvim"
-alias v="env TERM=wezterm nvim"
+alias vim="nvim"
+alias v="nvim"
 #shortcuts custom commands
 alias ffl="fetchfromlive"
 alias sshl="sshtolive"

@@ -5,6 +5,7 @@ Content inside my dotfiles:
 
 * My bash setup, aliases, functions etc..
 * Wezterm settings
+* Ghostty settings
 * My Neovim setup
 * Starship configuration
 * Lsd configuration
@@ -17,7 +18,7 @@ Content inside my dotfiles:
 Please install the following binaries via homebrew
 
 ```
-brew install wezterm
+brew install ghostty
 brew install bash
 brew install bash_completion@2
 brew install thefuck
