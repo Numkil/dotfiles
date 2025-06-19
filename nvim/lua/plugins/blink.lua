@@ -66,7 +66,7 @@ return {
           score_offset = 100,
         },
         cmdline = {
-          min_keyword_length = 4,
+          min_keyword_length = 2,
           score_offset = 4,
         },
         snippets = {
