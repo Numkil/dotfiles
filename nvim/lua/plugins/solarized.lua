@@ -1,20 +1,11 @@
 return {
-  'maxmx03/solarized.nvim',
+  'sainnhe/gruvbox-material',
   lazy = false,
   priority = 1000,
-  ---@type solarized.config
-  opts = {
-    palette = 'selenized', -- solarized (default) | selenized
-    variant = 'autumn',
-    error_lens = {
-      text = true,
-      symbol = true,
-    },
-  },
-  config = function(_, opts)
+  config = function()
     vim.o.termguicolors = true
     vim.o.background = 'light'
-    require('solarized').setup(opts)
-    vim.cmd.colorscheme 'solarized'
+    vim.g.gruvbox_material_enable_italic = true
+    vim.cmd.colorscheme 'gruvbox-material'
   end,
 }

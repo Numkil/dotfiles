@@ -5,7 +5,7 @@ return {
   },
   config = function()
     require('lualine').setup {
-      options = { theme = 'solarized' },
+      options = { theme = 'gruvbox' },
       sections = {
         -- Add the macro recording status in the mode section
         lualine_b = {
