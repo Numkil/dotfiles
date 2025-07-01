@@ -27,6 +27,7 @@ return {
       },
     },
     bigfile = {},
+    terminal = {},
     git = {},
     indent = {},
     input = {},

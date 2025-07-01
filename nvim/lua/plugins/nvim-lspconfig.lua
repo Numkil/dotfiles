@@ -33,14 +33,6 @@ return {
         require('utils').keymapSetList({
           { 'n', '<leader>rn', vim.lsp.buf.rename, { desc = '[R]e[n]ame' } },
           {
-            { 'n', 'x' },
-            '<leader>ca',
-            function()
-              require('tiny-code-action').code_action()
-            end,
-            { desc = '[C]ode [A]ction' },
-          },
-          {
             'n',
             'gd',
             builtin.lsp_definitions,
