@@ -19,14 +19,14 @@ return {
     })
     require('mason-tool-installer').setup { ensure_installed = ensure_installed, auto_update = true }
 
+    for server_name, config in pairs(servers) do
+      vim.lsp.config(server_name, config)
+    end
+
     ---@type MasonLspconfigSettings
     ---@diagnostic disable-next-line: missing-fields
     require('mason-lspconfig').setup {
       automatic_enable = ensure_installed,
     }
-
-    for server_name, config in pairs(servers) do
-      vim.lsp.config(server_name, config)
-    end
   end,
 }

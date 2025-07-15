@@ -47,6 +47,10 @@ M.lsps = {
       twiggy = {
         framework = 'craft',
         phpExecutable = '/opt/homebrew/bin/php',
+        symfonyConsolePath = 'bin/console',
+        diagnostics = {
+          twigCsFixer = true,
+        },
       },
     },
   },
