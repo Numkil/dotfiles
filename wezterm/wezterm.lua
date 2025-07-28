@@ -19,7 +19,7 @@ local os_name = _run_command("uname")
 local is_linux = os_name ~= "Darwin"
 
 -- color scheme
-config.color_scheme = "Everforest Light Hard (Gogh)"
+config.color_scheme = "Gruvbox (Gogh)"
 
 -- Dim inactive panes
 config.inactive_pane_hsb = {

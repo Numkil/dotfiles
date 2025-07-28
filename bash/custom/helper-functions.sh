@@ -15,26 +15,6 @@ function mkcd(){
     cd "$*"
 }
 
-# Convert all .mp3 files in a folder to .ogg files
-function toogg(){
-    for fic in *.mp3
-    do
-        ffmpeg -i "$fic" -acodec libvorbis -aq 60 -vsync 2 "${fic%.mp3}.ogg";
-        rm "$fic"
-    done
-}
-
-# Open last modified file in directory
-function vimlast(){
-    if [ -d $1 ] ; then
-        SOURCE_DIR=`echo $1 | sed 's/^\/\(.*\)\/$/\1/g'`
-        LAST_MODIFIED_FILE=`ls -ta ${SOURCE_DIR}| head -1`
-        nvim $SOURCE_DIR/$LAST_MODIFIED_FILE
-    else
-        echo "no directory called $1"
-    fi
-}
-
 function copyCombellDb(){
     SOURCE_DIR=${PWD##*/}
     SOURCE_DIR=~/.databases/mysql/${SOURCE_DIR:-/}
@@ -43,6 +23,43 @@ function copyCombellDb(){
     echo "Moving $FILE to $SOURCE_DIR"
     rm -rf $SOURCE_DIR/*
     mv $FILE $SOURCE_DIR
+}
+
+# checkout git branch/tag, with a preview showing the commits between the tag/branch and HEAD
+checkoutGitBranchViaFzf() {
+  local tags branches target
+  branches=$(
+    git --no-pager branch --all \
+      --format="%(if)%(HEAD)%(then)%(else)%(if:equals=HEAD)%(refname:strip=3)%(then)%(else)%1B[0;34;1mbranch%09%1B[m%(refname:short)%(end)%(end)" \
+    | sed '/^$/d') || return
+  tags=$(
+    git --no-pager tag | awk '{print "\x1b[35;1mtag\x1b[m\t" $1}') || return
+  target=$(
+    (echo "$branches"; echo "$tags") |
+    fzf --no-hscroll --no-multi -n 2 \
+        --ansi --preview="git --no-pager log -150 --pretty=format:%s '..{2}'") || return
+  git checkout $(awk '{print $2}' <<<"$target" )
+}
+
+
+# fuzzy grep open via rg with line number, and preview
+openViaRg() {
+  local file
+
+  file="$(rg --no-heading $@ | fzf -0 -1 | awk -F: '{print $1}')"
+
+  if [[ -n $file ]]
+  then
+     nvim $file
+  fi
+}
+
+# Show a list of directories and cd into it when selected via fzf
+cdViaFzf() {
+  local dir
+  dir=$(find ${1:-.} -path '*/\.*' -prune \
+                  -o -type d -print 2> /dev/null | fzf +m) &&
+  cd "$dir"
 }
 
 # import db from designated folder into docker container
