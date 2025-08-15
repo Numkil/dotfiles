@@ -14,9 +14,8 @@ return {
     -- Ensure all servers and debug adapters are installed
     local servers = require('utils.external-tools').lsps
     local ensure_installed = vim.tbl_keys(servers)
-    vim.list_extend(ensure_installed, {
-      'stylua', -- Used to format Lua code
-    })
+    local formatters = require('utils.external-tools').formatters
+    vim.list_extend(ensure_installed, formatters)
     require('mason-tool-installer').setup { ensure_installed = ensure_installed, auto_update = true }
 
     for server_name, config in pairs(servers) do

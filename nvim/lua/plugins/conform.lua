@@ -4,12 +4,6 @@ local opts = {
       inherit = true,
       command = 'php-cs-fixer',
     },
-    ludtwig = {
-      inherit = false,
-      command = 'ludtwig',
-      args = { '-f', '$FILENAME' },
-      stdin = false,
-    },
   },
   formatters_by_ft = require('utils.external-tools').formatters_by_ft,
   format_on_save = function(bufnr)
