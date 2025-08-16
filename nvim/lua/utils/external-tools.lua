@@ -62,31 +62,36 @@ M.lsps = {
   },
 }
 
--- NOTE: This tells mason which formatters to install necessary because the binary does not always match up with the formatter name
+-- NOTE: This tells mason which formatters/linters to install necessary because
+-- the binary does not always match up with the formatter name
 M.formatters = {
   'stylua',
+  'vale',
   'twig-cs-fixer',
   'php-cs-fixer',
-  'prettier',
-  'prettierd',
-  'rustfmt',
+  'mdformat',
+  'eslint_d',
+  'luacheck',
 }
 
 -- NOTE: This tells conform which formatters to enable
 M.formatters_by_ft = {
-  javascript = { 'prettierd', 'prettier' },
-  typescript = { 'prettierd', 'prettier' },
-  vue = { 'prettierd', 'prettier' },
-  html = { 'prettierd', 'prettier' },
-  css = { 'prettierd', 'prettier' },
-  scss = { 'prettierd', 'prettier' },
-  less = { 'prettierd', 'prettier' },
-  json = { 'prettierd', 'prettier' },
-  yaml = { 'prettierd', 'prettier' },
-  rust = { 'rustfmt' },
   lua = { 'stylua' },
   php = { 'php_cs_fixer' },
   twig = { 'twig-cs-fixer' },
+  markdown = { 'mdformat' },
+  javascript = { 'eslint_d' },
+  typescript = { 'eslint_d' },
+}
+
+-- NOTE: this tells nvim-lint which linters to enable
+M.linters_by_ft = {
+  markdown = { 'vale' },
+  php = { 'php' },
+  twig = { 'twig-cs-fixer' },
+  lua = { 'luacheck' },
+  javascript = { 'eslint_d' },
+  typescript = { 'eslint_d' },
 }
 
 M.parsers = {
