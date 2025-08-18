@@ -1,6 +1,6 @@
 return {
   'mfussenegger/nvim-lint',
-  event = 'BufWritePre',
+  lazy = false,
   config = function()
     require('lint').linters_by_ft = require('utils.external-tools').linters_by_ft
 

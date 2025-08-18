@@ -18,7 +18,7 @@ return {
     'rachartier/tiny-code-action.nvim',
     'https://git.sr.ht/~whynothugo/lsp_lines.nvim',
   },
-  event = 'BufEnter',
+  event = { 'BufReadPre', 'BufNewFile' },
   config = function()
     require('lazydev').setup {}
     require('lsp_lines').setup()
