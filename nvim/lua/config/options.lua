@@ -20,9 +20,11 @@ vim.wo.number = true
 -- Sync clipboard between OS and Neovim.
 vim.o.clipboard = 'unnamedplus'
 
--- Fallback tabstop settings when sleuth fails me
+-- Fallback tabstop settings when guess-indent fails me
 vim.o.expandtab = false
 vim.o.smartindent = true
+vim.o.tabstop = 4
+vim.o.shiftwidth = 4
 
 -- fully disable mouse
 vim.o.mouse = ''
