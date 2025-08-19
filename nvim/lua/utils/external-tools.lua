@@ -55,10 +55,10 @@ M.lsps = {
     },
   },
   html = {
-    filetypes = { 'twig', 'html' },
+    filetypes = { 'twig', 'html', 'vue' },
   },
   tailwindcss = {
-    filetypes = { 'twig', 'html' },
+    filetypes = { 'twig', 'html', 'vue' },
   },
 }
 

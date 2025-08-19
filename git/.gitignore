@@ -1,6 +1,7 @@
 .php-cs*
 .DS_Store
 .phpactor*
+.twig-cs-fixer.cache
 .php-cs-fixer.cache
 .ddev/docker-compose.phpmyadmin-norouter.yaml
 .ddev/docker-compose.phpmyadmin.yaml
