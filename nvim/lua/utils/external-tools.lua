@@ -13,7 +13,8 @@ M.lsps = {
       ['language_server_phpstan.enabled'] = true,
     },
   },
-  vtsls = { filetypes = { 'javascript', 'typescript', 'vue' } },
+  ts_ls = { filetypes = { 'typescript', 'vue' } },
+  vue_ls = {},
   lua_ls = {
     settings = {
       Lua = {
@@ -47,7 +48,6 @@ M.lsps = {
       twiggy = {
         framework = 'craft',
         phpExecutable = '/opt/homebrew/bin/php',
-        symfonyConsolePath = 'bin/console',
         diagnostics = {
           twigCsFixer = true,
         },
