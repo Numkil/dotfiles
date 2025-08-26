@@ -6,6 +6,8 @@ cp -f ./bash/custom/options.sh ~/.options.sh
 cp -f ./bash/custom/aliases.sh ~/.aliases.sh
 cp -f ./bash/custom/sudo.sh ~/.sudo.sh
 cp -f ./starship/starship.toml ~/.config/starship.toml
+cp -f ./yabai/.yabairc ~/.yabairc
+cp -f ./skhd/.skhdrc ~/.skhdrc
 cp -f ./git/.gitconfig ~/.gitconfig
 cp -f ./git/.gitignore ~/.gitignore
 rm -rf ~/.config/lsd && cp -rf ./lsd ~/.config/lsd

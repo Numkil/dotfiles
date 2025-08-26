@@ -1,17 +1,16 @@
-DotFiles
-==============
+# DotFiles
 
 Content inside my dotfiles:
 
-* My bash setup, aliases, functions etc..
-* Wezterm settings
-* Ghostty settings
-* My Neovim setup
-* Starship configuration
-* Lsd configuration
-* Ripgrep configuration
-* Raycast config binary for importing
-* A script to copy all of the above config files to their correct destination
+- My bash setup, aliases, functions etc..
+- Wezterm settings
+- Ghostty settings
+- My Neovim setup
+- Starship configuration
+- Lsd configuration
+- Ripgrep configuration
+- Raycast config binary for importing
+- A script to copy all of the above config files to their correct destination
 
 ## Setting up my terminal
 
@@ -25,6 +24,8 @@ brew install thefuck
 brew install lsd
 brew install ripgrep
 brew install fzf
+brew install yabai
+brew install skhd
 brew install starship
 brew install neovim
 brew install tldr
@@ -43,14 +44,13 @@ chsh -s opt/homebrew/bin/bash
 
 after everything is installed run the following command
 
-``` chmod +x install.sh && sh install.sh ```
+`chmod +x install.sh && sh install.sh`
 
 ## Other stuff I want to document i use on a regular basis but do not keep config for
 
 Some good mac apps
 
 ```
-brew install amethyst
 brew install raycast
 brew install 1password
 brew install discord
