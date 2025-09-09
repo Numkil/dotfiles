@@ -9,7 +9,7 @@ return {
   config = function()
     require('tiny-code-action').setup {
       picker = {
-        'snacks',
+        'fzf-lua',
         opts = {
           winborder = 'single',
         },

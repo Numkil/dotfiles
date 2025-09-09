@@ -82,6 +82,7 @@ vim.api.nvim_create_autocmd('ModeChanged', {
   end,
 })
 
+-- [[ Show a diagnostic float when the cursor waits on a line with an error ]]
 vim.api.nvim_create_autocmd('CursorHold', {
   callback = function()
     vim.diagnostic.open_float(nil, { focusable = false, source = 'if_many' })

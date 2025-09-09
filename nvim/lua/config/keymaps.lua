@@ -33,9 +33,7 @@ require('utils').keymapSetList {
       vim.cmd 'nohl'
       local mc = require 'multicursor-nvim'
 
-      if not mc.cursorsEnabled() then
-        mc.enableCursors()
-      elseif mc.hasCursors() then
+      if mc.hasCursors() then
         mc.clearCursors()
       end
     end,
