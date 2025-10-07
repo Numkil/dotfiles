@@ -15,6 +15,14 @@ function mkcd(){
     cd "$*"
 }
 
+function nukeModulesAndLogs(){
+    cd ~/Documents/projects
+    echo "Nuking logs"
+    find . -path '*/storage/logs' -type d -prune -exec rm -rf '{}' +
+    echo "Nuking modules"
+    find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +
+}
+
 function copyCombellDb(){
     SOURCE_DIR=${PWD##*/}
     SOURCE_DIR=~/.databases/mysql/${SOURCE_DIR:-/}
