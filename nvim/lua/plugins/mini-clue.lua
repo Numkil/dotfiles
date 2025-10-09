@@ -1,5 +1,5 @@
 return {
-  'echasnovski/mini.clue',
+  'nvim-mini/mini.clue',
   event = { 'BufReadPre', 'BufNewFile' },
   config = function()
     local miniclue = require 'mini.clue'

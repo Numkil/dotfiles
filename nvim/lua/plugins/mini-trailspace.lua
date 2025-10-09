@@ -1,5 +1,5 @@
 return {
-  'echasnovski/mini.trailspace',
+  'nvim-mini/mini.trailspace',
   event = { 'BufReadPre', 'BufNewFile' },
   config = function()
     vim.cmd [[hi MiniTrailspace guibg=#b58900]]
