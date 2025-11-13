@@ -2,14 +2,14 @@ return {
   'rachartier/tiny-code-action.nvim',
   dependencies = {
     { 'nvim-lua/plenary.nvim' },
-    -- optional picker via fzf-lua
-    { 'ibhagwan/fzf-lua' },
+    -- optional picker via snacks
+    'folke/snacks.nvim',
   },
   event = 'LspAttach',
   config = function()
     require('tiny-code-action').setup {
       picker = {
-        'fzf-lua',
+        'snacks',
         opts = {
           winborder = 'single',
         },
