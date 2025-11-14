@@ -116,6 +116,13 @@ return {
       desc = 'Goto Definition',
     },
     {
+      'gD',
+      function()
+        Snacks.picker.lsp_declarations()
+      end,
+      desc = 'Goto Declaration',
+    },
+    {
       '<leader>ds',
       function()
         Snacks.picker.lsp_symbols()
