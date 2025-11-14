@@ -95,7 +95,7 @@ return {
       desc = 'Diagnostics',
     },
     {
-      '<leader>gf',
+      '<leader>gs',
       function()
         Snacks.picker.git_status()
       end,
