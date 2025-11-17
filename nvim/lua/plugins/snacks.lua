@@ -34,7 +34,16 @@ return {
     input = {},
     scope = {},
     words = {},
-    picker = {},
+    picker = {
+      win = {
+        input = {
+          keys = {
+            ['<S-Tab>'] = { 'list_up', mode = { 'i', 'n' } },
+            ['<Tab>'] = { 'list_down', mode = { 'i', 'n' } },
+          },
+        },
+      },
+    },
   },
   keys = {
     {
