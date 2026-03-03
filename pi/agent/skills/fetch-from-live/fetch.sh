@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Fetch a file from the live Statik server for the current project.
+# Fetch a file from a live Statik server for the current project.
 # Usage: fetch.sh <filename> [project-directory]
 #
 # The project name is derived from the current working directory name,

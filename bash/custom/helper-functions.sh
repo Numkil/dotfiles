@@ -159,20 +159,28 @@ function release() {
 
 # Hide difficult logic behind extracting compressed folders
 # Use the file extension to determine which command to use
+# Note: multi-extension patterns (e.g. *.tar.gz) must come before
+# single-extension patterns (e.g. *.gz) to match correctly
 function extract () {
-    if [ -f $1 ] ; then
-        case $1 in
-            *.tar.gz)  tar xzf $1 ;;
-            *.gz)      gunzip $1 ;;
-            *.tar)     tar xf $1 ;;
-            *.tgz)     tar xzf $1 ;;
-            *.tar.bz2) tar xjf $1 ;;
-            *.bz2)     bunzip2 $1 ;;
-            *.rar)     rar x $1 ;;
-            *.tbz2)    tar xjf $1 ;;
-            *.zip)     unzip $1 ;;
-            *.Z)       uncompress $1 ;;
-            *.7z)      7za x $1 ;;
+    if [ -f "$1" ] ; then
+        local lcfile
+        lcfile=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+        case "$lcfile" in
+            *.tar.gz)  tar xzf "$1" ;;
+            *.tar.bz2) tar xjf "$1" ;;
+            *.tar.xz)  tar xJf "$1" ;;
+            *.tar.zst) tar --zstd -xf "$1" ;;
+            *.tbz2)    tar xjf "$1" ;;
+            *.tgz)     tar xzf "$1" ;;
+            *.gz)      gunzip "$1" ;;
+            *.bz2)     bunzip2 "$1" ;;
+            *.xz)      unxz "$1" ;;
+            *.zst)     unzstd "$1" ;;
+            *.tar)     tar xf "$1" ;;
+            *.rar)     unrar x "$1" ;;
+            *.zip)     unzip "$1" ;;
+            *.Z)       uncompress "$1" ;;
+            *.7z)      7z x "$1" ;;
             *)         echo "'$1' cannot be extracted via extract" >&2 ;;
         esac
     else
