@@ -18,5 +18,6 @@ rm -rf ~/.config/ghostty && cp -rf ./ghostty ~/.config/ghostty
 rm -rf ~/.pi/agent/skills && cp -rf ./pi/agent/skills ~/.pi/agent/skills
 cp -f ./pi/agent/APPEND_SYSTEM.md ~/.pi/agent/APPEND_SYSTEM.md
 mkdir -p ~/.pi/agent/themes && cp -f ./pi/agent/themes/gruvbox-material.json ~/.pi/agent/themes/gruvbox-material.json
+mkdir -p ~/.pi/agent/themes && cp -f ./pi/agent/themes/gruvbox-material-light.json ~/.pi/agent/themes/gruvbox-material-light.json
 
 echo "If no errors were reported, you can now run 'source ~/.bash_profile' to load the new settings."
