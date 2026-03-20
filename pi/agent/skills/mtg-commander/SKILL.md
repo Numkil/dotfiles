@@ -1,6 +1,6 @@
 ---
 name: mtg-commander
-description: Magic: The Gathering Commander/EDH format assistant. Use when the user asks about MTG Commander rules, card lookups, deck building, card interactions, deck analysis, or anything related to the Commander format. Can look up cards via Scryfall, fetch decklists from Archidekt, and validate decks against Commander rules.
+description: "Magic: The Gathering Commander/EDH format assistant. Use when the user asks about MTG Commander rules, card lookups, deck building, card interactions, deck analysis, or anything related to the Commander format. Can look up cards via Scryfall, fetch decklists from Archidekt, and validate decks against Commander rules."
 ---
 
 # MTG Commander Skill

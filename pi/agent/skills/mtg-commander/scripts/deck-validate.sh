@@ -86,8 +86,8 @@ for entry in cards:
     if 'Commander' in cats:
         commanders.append(card_info)
 
-    # Only count cards that are included in the deck
-    if any(c in included_cats for c in cats):
+    # Only count cards that are included in the deck (skip Maybeboard even if multi-categorized)
+    if 'Maybeboard' not in cats and any(c in included_cats for c in cats):
         deck_cards.append(card_info)
 
 print(f\"Validating: {name}\")

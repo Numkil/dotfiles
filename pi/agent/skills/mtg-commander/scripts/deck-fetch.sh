@@ -123,7 +123,8 @@ for cat_info in data.get('categories', []):
 deck_card_count = sum(
     entry.get('quantity', 1)
     for entry in cards
-    if any(c in included_cats for c in (entry.get('categories') or ['Uncategorized']))
+    if 'Maybeboard' not in (entry.get('categories') or [])
+    and any(c in included_cats for c in (entry.get('categories') or ['Uncategorized']))
 )
 
 print(f\"{'='*60}\")
