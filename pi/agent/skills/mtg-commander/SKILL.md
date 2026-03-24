@@ -31,6 +31,20 @@ The script uses Scryfall's fuzzy matching — partial or misspelled names work. 
 
 **Important:** Whenever a card is mentioned in conversation — whether for rules questions, deck advice, or comparison — run the lookup script to confirm the card's actual oracle text, color identity, and legality. Do NOT rely on memory for card details.
 
+## Batch Card Lookup
+
+When you need to verify multiple cards at once (e.g. verifying a deck description, checking a list of suggestions):
+
+```bash
+# Look up multiple cards by name as arguments
+./scripts/card-lookup-batch.sh "Sol Ring" "Arcane Signet" "Command Tower"
+
+# Pipe card names via stdin (one per line)
+echo -e "Sol Ring\nArcane Signet\nCommand Tower" | ./scripts/card-lookup-batch.sh --stdin
+```
+
+This calls `card-lookup.sh` for each card with proper Scryfall rate limiting (100ms between requests). Reports found/failed counts at the end. Use this instead of repeated individual lookups when verifying 3+ cards.
+
 ## Card Search
 
 Find cards matching specific criteria using Scryfall search syntax:
@@ -65,6 +79,9 @@ Fetch and analyze decklists from Archidekt:
 
 # Full view — includes oracle text for every card
 ./scripts/deck-fetch.sh 12345 --full
+
+# Deck description/primer text only
+./scripts/deck-fetch.sh 12345 --description
 
 # Raw JSON for custom analysis
 ./scripts/deck-fetch.sh 12345 --json
@@ -128,6 +145,31 @@ When answering rules questions:
 ./scripts/deck-validate.sh DECK_ID
 # Then look up specific cards of interest with card-lookup.sh
 ```
+
+### "Verify/review my deck description"
+
+Deck descriptions and primers frequently contain errors — wrong power/toughness, incorrect oracle text paraphrasing, or references to cards that aren't actually in the deck. Follow this workflow:
+
+1. Fetch the decklist and description:
+```bash
+./scripts/deck-fetch.sh DECK_ID --full
+./scripts/deck-fetch.sh DECK_ID --description
+```
+
+2. Extract every card name mentioned in the description text. Cross-reference each one against the actual decklist. Flag any card names that appear in the description but NOT in the deck — these are phantom references (cards that were cut or never added).
+
+3. Look up every card mentioned in the description to verify claims:
+```bash
+./scripts/card-lookup-batch.sh "Card One" "Card Two" "Card Three"
+```
+
+4. Check for these common errors:
+   - **Wrong stats**: power/toughness, mana cost, CMC quoted incorrectly
+   - **Phantom cards**: cards described that aren't in the decklist
+   - **Misquoted abilities**: oracle text paraphrased incorrectly (e.g., saying a card "creates a token" when it doesn't, or wrong trigger conditions)
+   - **Wrong counts**: "the deck runs five X" when the actual count differs
+   - **Assumed synergies that don't work**: abilities that don't interact the way the description claims (always verify against actual oracle text)
+   - **Legality issues**: cards that aren't legal in Commander (Un-sets, banned cards) without noting Rule Zero
 
 ## API Rate Limits
 

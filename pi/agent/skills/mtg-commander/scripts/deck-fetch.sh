@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # Fetch a decklist from Archidekt by deck ID or URL
-# Usage: ./deck-fetch.sh <deck_id_or_url> [--summary|--full|--json]
+# Usage: ./deck-fetch.sh <deck_id_or_url> [--summary|--full|--json|--description]
 # Examples:
 #   ./deck-fetch.sh 12345
 #   ./deck-fetch.sh https://archidekt.com/decks/12345/my-deck
 #   ./deck-fetch.sh 12345 --summary
 #   ./deck-fetch.sh 12345 --full
+#   ./deck-fetch.sh 12345 --description
 
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
   echo "Usage: $0 <deck_id_or_url> [--summary|--full|--json]"
   echo ""
-  echo "  --summary   Show deck overview with card counts per category (default)"
-  echo "  --full      Show full decklist with card details"
-  echo "  --json      Output raw JSON"
+  echo "  --summary       Show deck overview with card counts per category (default)"
+  echo "  --full          Show full decklist with card details"
+  echo "  --json          Output raw JSON"
+  echo "  --description   Show just the deck description/primer text"
   exit 1
 fi
 
@@ -58,6 +60,35 @@ fi
 
 if [ "$MODE" = "--json" ]; then
   echo "$RESPONSE" | python3 -m json.tool
+  exit 0
+fi
+
+if [ "$MODE" = "--description" ]; then
+  echo "$RESPONSE" | python3 -c "
+import json, sys
+
+data = json.load(sys.stdin)
+desc = data.get('description', '')
+
+if not desc:
+    print('(No description found)')
+    sys.exit(0)
+
+# Archidekt stores descriptions as Quill delta JSON
+try:
+    if isinstance(desc, str):
+        delta = json.loads(desc)
+    else:
+        delta = desc
+
+    if isinstance(delta, dict) and 'ops' in delta:
+        text = ''.join(op.get('insert', '') for op in delta['ops'])
+        print(text.strip())
+    else:
+        print(str(desc).strip())
+except (json.JSONDecodeError, TypeError):
+    print(str(desc).strip())
+"
   exit 0
 fi
 
