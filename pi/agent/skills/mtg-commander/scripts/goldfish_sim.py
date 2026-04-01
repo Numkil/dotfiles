@@ -5,6 +5,19 @@ Generic Commander deck goldfish (solitaire) simulator.
 Reads Archidekt deck JSON from stdin and simulates N games of M turns each.
 Uses card types, oracle text, mana production, and Archidekt categories
 to heuristically resolve spells without hardcoding card names.
+
+Features:
+- Draws opening hands with mulligan logic (keeps 2-5 lands)
+- Plays lands with color priority
+- Casts spells by priority: ramp early, then draw, then creatures, then other
+- Resolves spell effects: land ramp, mana rocks, draw, sac-draw, kicker
+- Resolves draw-then-discard spells (tracks discards)
+- Detects and creates tokens from ETB/cast triggers
+- Detects and uses activated abilities on permanents (discard outlets, tap
+  abilities, token makers) with remaining mana after spell casting
+- Resolves upkeep triggers (forced discard, draw-discard wheels)
+- Tracks commander casting with optional minimum X value
+- Reports per-game logs + aggregate stats including token and discard counts
 """
 
 import json
@@ -13,7 +26,7 @@ import re
 import argparse
 import random
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 
 # =============================================================================
 # Card data model
@@ -51,6 +64,7 @@ class Card:
     is_draw: bool = False
     is_sac_draw: bool = False
     draw_count: int = 0
+    discard_count: int = 0           # how many cards this spell forces you to discard
     lands_to_field: int = 0
     lands_to_hand: int = 0
     extra_mana: int = 0
@@ -61,6 +75,29 @@ class Card:
     has_x_cost: bool = False
     color_costs: dict = field(default_factory=dict)
     produces_colors: set = field(default_factory=set)
+
+    # Token creation on ETB/cast
+    etb_token_count: int = 0         # number of tokens created on ETB
+    etb_token_power: int = 0         # power of created tokens
+    etb_token_toughness: int = 0
+    etb_token_type: str = ""         # e.g. "Zombie", "Soldier"
+
+    # Activated abilities (parsed from oracle text)
+    activated_abilities: list = field(default_factory=list)
+    # Each entry: {'type': str, 'mana_cost': int, 'needs_tap': bool,
+    #              'needs_discard': int, 'effect': str, ...}
+
+    # Upkeep triggers
+    has_upkeep_draw: bool = False
+    upkeep_draw_count: int = 0
+    has_upkeep_discard: bool = False
+    upkeep_discard_count: int = 0
+    has_upkeep_discard_draw: bool = False  # "discard hand, draw that many"
+    has_upkeep_forced_discard: bool = False  # Bottomless Pit style
+
+    # Attack triggers
+    attack_token_count: int = 0
+    attack_token_type: str = ""
 
     def __post_init__(self):
         self.is_land = 'Land' in self.types
@@ -89,6 +126,11 @@ class Card:
 
         # Classify using oracle text heuristics + categories
         self._classify()
+        self._parse_etb_tokens()
+        self._parse_attack_tokens()
+        self._parse_activated_abilities()
+        self._parse_upkeep_triggers()
+        self._parse_discard_effect()
 
     def _classify(self):
         text_lower = self.text.lower()
@@ -122,7 +164,6 @@ class Card:
 
         # Equipment/artifact that produces mana (e.g., Thieves' Tools - categorized as ramp)
         if is_ramp_category and not self.is_land and self.extra_mana == 0:
-            # Check oracle text for mana ability
             if re.search(r'\{t\}:\s*add\s+\{', text_lower) or self.produces_colors:
                 self.is_ramp = True
                 self.extra_mana = max(
@@ -134,9 +175,7 @@ class Card:
             self.is_land_ramp = True
             self.is_ramp = True
 
-            # Count lands to field
             if re.search(r'up to two basic land cards.{0,60}(put one onto the battlefield|one onto the battlefield).{0,40}(other|the other) into your hand', text_lower):
-                # Cultivate / Kodama's Reach pattern
                 self.lands_to_field = 1
                 self.lands_to_hand = 1
             elif re.search(r'up to two basic land cards.{0,30}put them onto the battlefield', text_lower):
@@ -144,19 +183,16 @@ class Card:
             elif re.search(r'search your library for .{0,50}(basic land|forest|plains|island|swamp|mountain) card.{0,10}put .{0,15}onto the battlefield', text_lower):
                 self.lands_to_field = 1
 
-            # Kicker / modal for extra land (e.g., Primal Growth)
             if 'kicker' in text_lower and re.search(r'kicked.{0,50}two basic land cards', text_lower):
-                # Base is 1, kicked is 2 - we'll handle this in the sim
-                self.lands_to_field = 1  # base case
+                self.lands_to_field = 1
 
         # Category-based ramp fallback
         if is_ramp_category and not self.is_ramp:
             self.is_ramp = True
-            # Try to determine effect from text
             if self.is_land_ramp or self.lands_to_field > 0:
-                pass  # already handled
+                pass
             elif self.extra_mana == 0:
-                self.extra_mana = 1  # conservative default
+                self.extra_mana = 1
 
         # Additional cost detection
         if re.search(r'(additional cost|as an additional cost|kicker).{0,30}sacrifice a creature', text_lower):
@@ -165,29 +201,22 @@ class Card:
             self.needs_sac_land = True
         if re.search(r'(additional cost|as an additional cost).{0,30}sacrifice an? artifact', text_lower):
             self.needs_sac_artifact = True
-        # "sacrifice an artifact or creature" (e.g., Deadly Dispute)
         if re.search(r'(additional cost|as an additional cost).{0,30}sacrifice an? (artifact or creature|creature or artifact)', text_lower):
             self.needs_sac_creature = True
             self.needs_sac_artifact = True
 
         # Draw detection
-        # For permanents, only count draw that happens on cast/ETB, not activated abilities
-        # Activated abilities have the pattern "{cost}: ...draw"
         draw_text = text_lower
         is_permanent = self.is_creature or self.is_artifact or self.is_enchantment or self.is_planeswalker
 
         if is_permanent:
-            # Split on newlines (each paragraph is a separate ability)
-            # Only look for draw in ETB/cast triggers or the spell portion, not activated abilities
             lines = text_lower.split('\n')
             etb_draw_lines = []
             for line in lines:
-                # Skip activated abilities (contain ":" with a cost before it)
                 if re.match(r'^\{.*\}.*:', line):
                     continue
                 if re.match(r'^[^:]+,\s*\{.*\}.*:', line):
                     continue
-                # Keep ETB triggers and static text
                 if 'enters' in line or 'when you cast' in line or 'draw' in line:
                     etb_draw_lines.append(line)
             draw_text = ' '.join(etb_draw_lines) if etb_draw_lines else ''
@@ -200,46 +229,262 @@ class Card:
                 self.draw_count = word_to_num.get(val, int(val) if val.isdigit() else 1)
             else:
                 self.draw_count = 1
-
             self.is_draw = True
-
-            # Sacrifice-draw (e.g., Village Rites, Deadly Dispute)
             if self.needs_sac_creature or self.needs_sac_artifact:
                 self.is_sac_draw = True
 
-        # Draw from categories - only for instants/sorceries, not permanents with activated draw
         if 'draw' in cats_lower and not self.is_draw:
             if not is_permanent:
                 self.is_draw = True
                 self.draw_count = max(self.draw_count, 1)
 
-        # Modal spells with repeated draw modes (e.g., Wretched Confluence "choose three")
         if re.search(r'choose three', text_lower) and self.draw_count == 1:
-            self.draw_count = 3  # assume all modes used for draw in goldfish
+            self.draw_count = 3
 
-        # Harrow special case: sac land, get 2 lands
+        # Harrow special case
         if self.needs_sac_land and self.is_land_ramp:
             if re.search(r'up to two basic land cards.{0,30}put them onto the battlefield', text_lower):
                 self.lands_to_field = 2
 
-        # Spells that need a creature target on the battlefield (not sac)
-        # e.g., "target creature gets +1/-1" or "when it dies... draw"
-        # But NOT modal spells where creature targeting is optional
+        # Spells that need a creature target
         if (self.is_instant or self.is_sorcery) and not self.needs_sac_creature:
             if re.search(r'target creature (gets|you control)', text_lower):
-                # Skip modal spells ("choose") where targeting creature is just one mode
                 if not re.search(r'choose (one|two|three|four|five)', text_lower):
                     self.needs_creature_target = True
+
+    def _parse_discard_effect(self):
+        """Detect how many cards a spell forces you to discard on resolution."""
+        if self.is_land:
+            return
+        text_lower = self.text.lower()
+        is_permanent = self.is_creature or self.is_artifact or self.is_enchantment or self.is_planeswalker
+
+        # Only parse discard effects on instants/sorceries (not activated abilities)
+        if is_permanent:
+            return
+
+        word_to_num = {'a': 1, 'one': 1, 'two': 2, 'three': 3, 'four': 4}
+
+        # "draw X cards, then discard Y cards" pattern
+        m = re.search(r'then discard (\w+) cards?', text_lower)
+        if m:
+            val = m.group(1).lower()
+            self.discard_count = word_to_num.get(val, int(val) if val.isdigit() else 1)
+            return
+
+        # "discard a card" at end (e.g. Pull from Tomorrow)
+        m = re.search(r'then discard a card', text_lower)
+        if m:
+            self.discard_count = 1
+            return
+
+        # "draws three cards. Then that player discards two cards" (Compulsive Research)
+        m = re.search(r'discards? (\w+) cards?', text_lower)
+        if m and 'draw' in text_lower:
+            val = m.group(1).lower()
+            self.discard_count = word_to_num.get(val, int(val) if val.isdigit() else 1)
+
+    def _parse_etb_tokens(self):
+        """Parse 'enters' + 'create' token patterns from oracle text."""
+        text_lower = self.text.lower()
+        is_permanent = self.is_creature or self.is_artifact or self.is_enchantment or self.is_planeswalker
+        if not is_permanent and not self.is_sorcery and not self.is_instant:
+            return
+
+        # Match: "when ... enters" or "enters the battlefield" combined with "create" tokens
+        # Also match cast triggers on instants/sorceries
+        lines = text_lower.split('\n')
+        for line in lines:
+            # Skip activated abilities
+            if re.match(r'^\{.*\}.*:', line):
+                continue
+            if re.match(r'^[^:]+,\s*\{.*\}.*:', line):
+                continue
+
+            # Check for enters/cast trigger with token creation
+            if not (('enters' in line or 'when you cast' in line) and 'create' in line):
+                # Also check instants/sorceries that just create tokens
+                if not ((self.is_instant or self.is_sorcery) and 'create' in line):
+                    continue
+
+            # Parse: "create [a/an/two/three] X/Y [color] [Type] creature token[s]"
+            token_match = re.search(
+                r'create (\w+) (\d+)/(\d+) .{0,30}?(\w+) creature tokens?',
+                line
+            )
+            if token_match:
+                word_to_num = {'a': 1, 'an': 1, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5}
+                count_word = token_match.group(1).lower()
+                self.etb_token_count = word_to_num.get(count_word, int(count_word) if count_word.isdigit() else 1)
+                self.etb_token_power = int(token_match.group(2))
+                self.etb_token_toughness = int(token_match.group(3))
+                self.etb_token_type = token_match.group(4).capitalize()
+                break
+
+    def _parse_attack_tokens(self):
+        """Parse 'attacks' + 'create' token patterns."""
+        text_lower = self.text.lower()
+        if not self.is_creature:
+            return
+
+        lines = text_lower.split('\n')
+        for line in lines:
+            if 'attacks' in line and 'create' in line:
+                token_match = re.search(
+                    r'create (\w+) (\d+)/(\d+) .{0,30}?(\w+) creature tokens?',
+                    line
+                )
+                if token_match:
+                    word_to_num = {'a': 1, 'an': 1, 'one': 1, 'two': 2, 'three': 3}
+                    count_word = token_match.group(1).lower()
+                    self.attack_token_count = word_to_num.get(count_word, int(count_word) if count_word.isdigit() else 1)
+                    self.attack_token_type = token_match.group(4).capitalize()
+                    break
+
+    def _parse_activated_abilities(self):
+        """Parse activated abilities from oracle text lines.
+        
+        Detects patterns like:
+        - "{2}, {T}: Create a 1/1 token"
+        - "Discard two cards: Create a 2/2 token"
+        - "{1}{B}, {T}, Discard a card: Create a 2/2 token"
+        - "{B}, {T}, Discard a card: Add {B}{B}{B}"
+        """
+        self.activated_abilities = []
+        is_permanent = self.is_creature or self.is_artifact or self.is_enchantment
+        if not is_permanent:
+            return
+
+        text_lower = self.text.lower()
+        lines = text_lower.split('\n')
+
+        for line in lines:
+            # Activated abilities have a colon separating cost from effect
+            if ':' not in line:
+                continue
+
+            # Split on first colon that's part of activated ability syntax
+            # (not mana symbols like {B}: which are within the cost)
+            # Heuristic: find the main cost:effect separator
+            parts = line.split(':', 1)
+            if len(parts) != 2:
+                continue
+            cost_part = parts[0].strip()
+            effect_part = parts[1].strip()
+
+            # Skip triggered abilities ("when", "whenever", "at the beginning")
+            if cost_part.startswith(('when', 'whenever', 'at the')):
+                continue
+
+            # Parse mana cost from the cost part
+            mana_symbols = re.findall(r'\{([^}]+)\}', cost_part)
+            needs_tap = 't' in mana_symbols
+            mana_symbols_no_tap = [s for s in mana_symbols if s.lower() != 't']
+
+            # Calculate total mana cost
+            total_mana = 0
+            color_requirements = {}
+            for sym in mana_symbols_no_tap:
+                if sym.isdigit():
+                    total_mana += int(sym)
+                elif sym in 'WUBRG':
+                    total_mana += 1
+                    color_requirements[sym] = color_requirements.get(sym, 0) + 1
+
+            # Parse discard cost
+            discard_cost = 0
+            word_to_num = {'a': 1, 'one': 1, 'two': 2, 'three': 3}
+            disc_match = re.search(r'discard (\w+) cards?', cost_part)
+            if disc_match:
+                val = disc_match.group(1).lower()
+                discard_cost = word_to_num.get(val, int(val) if val.isdigit() else 1)
+            elif 'discard a card' in cost_part:
+                discard_cost = 1
+
+            ability = {
+                'line': line,
+                'mana_cost': total_mana,
+                'needs_tap': needs_tap,
+                'discard_cost': discard_cost,
+                'color_requirements': color_requirements,
+                'effect': effect_part,
+                'type': 'unknown',
+            }
+
+            # Classify the effect
+            # Token creation
+            token_match = re.search(
+                r'create (\w+) (\d+)/(\d+) .{0,30}?(\w+) creature tokens?',
+                effect_part
+            )
+            if token_match:
+                count_word = token_match.group(1).lower()
+                ability['type'] = 'create_token'
+                ability['token_count'] = word_to_num.get(count_word, int(count_word) if count_word.isdigit() else 1)
+                ability['token_power'] = int(token_match.group(2))
+                ability['token_type'] = token_match.group(4).capitalize()
+
+            # Mana production (e.g., "add {B}{B}{B}")
+            elif re.search(r'add \{', effect_part):
+                add_match = re.findall(r'\{([WUBRGC])\}', effect_part)
+                ability['type'] = 'add_mana'
+                ability['mana_produced'] = len(add_match)
+
+            # Draw
+            elif 'draw' in effect_part:
+                draw_match = re.search(r'draw (\w+) cards?', effect_part)
+                if draw_match:
+                    val = draw_match.group(1).lower()
+                    ability['type'] = 'draw'
+                    ability['draw_count'] = word_to_num.get(val, int(val) if val.isdigit() else 1)
+                elif 'draw a card' in effect_part:
+                    ability['type'] = 'draw'
+                    ability['draw_count'] = 1
+
+            # Only add abilities we understand
+            if ability['type'] != 'unknown':
+                self.activated_abilities.append(ability)
+
+    def _parse_upkeep_triggers(self):
+        """Detect upkeep triggers from oracle text."""
+        text_lower = self.text.lower()
+        is_permanent = self.is_creature or self.is_artifact or self.is_enchantment
+        if not is_permanent:
+            return
+
+        lines = text_lower.split('\n')
+        for line in lines:
+            if 'beginning of' not in line or 'upkeep' not in line:
+                continue
+
+            # "discard a card at random" (Bottomless Pit)
+            if re.search(r'discard.{0,10}card.{0,10}random', line):
+                self.has_upkeep_forced_discard = True
+
+            # "you may discard all the cards in your hand. If you do, draw that many"
+            if re.search(r'discard all.{0,20}cards.{0,20}hand.{0,40}draw that many', line):
+                self.has_upkeep_discard_draw = True
+
+            # "draw a card" at upkeep
+            if re.search(r'draw (\w+) cards?', line) and 'discard' not in line:
+                m = re.search(r'draw (\w+) cards?', line)
+                word_to_num = {'a': 1, 'one': 1, 'two': 2, 'three': 3}
+                if m:
+                    val = m.group(1).lower()
+                    self.has_upkeep_draw = True
+                    self.upkeep_draw_count = word_to_num.get(val, int(val) if val.isdigit() else 1)
 
     def produces_color(self, color):
         """Check if this permanent can produce a specific color."""
         if color in self.produces_colors:
             return True
-        # 'C' in produces means colorless, any-color lands would show all colors
         return False
 
     def __repr__(self):
         return self.name
+
+    def __hash__(self):
+        return id(self)
 
 
 # =============================================================================
@@ -309,6 +554,11 @@ class GameState:
     graveyard: list = field(default_factory=list)
     commander_zone: list = field(default_factory=list)
     ramp_mana: int = 0  # extra mana from rocks/dorks/enchantments
+    tokens: int = 0  # total creature tokens on battlefield
+    total_discards: int = 0  # total cards discarded this game
+    turn_discards: int = 0  # cards discarded this turn
+    creatures_entered_this_turn: set = field(default_factory=set)  # for summoning sickness
+    tapped_creatures: set = field(default_factory=set)  # tapped creature ids
 
     @property
     def total_mana(self):
@@ -334,22 +584,28 @@ class GameState:
                 return False
         return True
 
+    def can_tap_creature(self, card):
+        """Check if a specific creature card can be tapped (not sick, not already tapped)."""
+        return (id(card) not in self.tapped_creatures and
+                id(card) not in self.creatures_entered_this_turn)
+
+    def tap_creature(self, card):
+        """Mark a creature as tapped."""
+        self.tapped_creatures.add(id(card))
+
 
 # =============================================================================
-# Simulation
+# Simulation helpers
 # =============================================================================
 
 def land_priority(card, game_state):
     """Score a land for play priority. Higher = play first."""
     score = 0
-    # Prefer color-producing lands
     color_count = sum(1 for c in 'WUBRG' if card.produces_color(c))
     score += color_count * 5
-    # Prefer lands that produce colors we don't yet have
     for c in 'WUBRG':
         if card.produces_color(c) and not game_state.color_available(c):
             score += 20
-    # Slight penalty for colorless-only lands
     if color_count == 0:
         score -= 3
     return score
@@ -371,6 +627,25 @@ def cast_priority(card, turn):
     # Everything else by CMC
     return (3, card.cmc)
 
+
+def choose_discards(hand, count):
+    """Choose cards to discard from hand. Prefers non-lands, higher CMC first."""
+    if len(hand) <= count:
+        return list(hand)
+    # Score: higher = discard first
+    def score(c):
+        s = 0
+        if c.is_land:
+            s -= 10  # prefer keeping lands
+        s += c.cmc  # discard expensive stuff we can't cast
+        return s
+    sorted_hand = sorted(hand, key=lambda c: -score(c))
+    return sorted_hand[:count]
+
+
+# =============================================================================
+# Simulation
+# =============================================================================
 
 def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
     """Simulate one goldfish game. Returns game log dict."""
@@ -408,23 +683,90 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
     }
 
     for turn in range(1, num_turns + 1):
+        state.turn_discards = 0
+        state.creatures_entered_this_turn = set()
+        state.tapped_creatures = set()
+
         turn_log = {
             'turn': turn,
             'drawn': None,
             'land_played': None,
             'spells': [],
+            'activations': [],
             'mana_after': 0,
             'hand_size': 0,
             'lands_on_field': 0,
+            'tokens': 0,
+            'total_discards': 0,
         }
 
-        # Draw (skip turn 1 — on the play)
+        # =================================================================
+        # UPKEEP PHASE — resolve upkeep triggers on permanents
+        # =================================================================
+        for perm in state.battlefield_creatures + state.battlefield_other:
+            # Forced random discard (Bottomless Pit)
+            if perm.has_upkeep_forced_discard and state.hand:
+                victim = rng.choice(state.hand)
+                state.hand.remove(victim)
+                state.graveyard.append(victim)
+                state.total_discards += 1
+                state.turn_discards += 1
+                turn_log['spells'].append(f"Upkeep: {perm.name} -> discard {victim.name}")
+
+            # Discard-hand-draw-that-many (Forgotten Creation)
+            if perm.has_upkeep_discard_draw and len(state.hand) > 0:
+                hand_size = len(state.hand)
+                discarded_names = [c.name for c in state.hand[:3]]
+                suffix = '...' if hand_size > 3 else ''
+                old_hand = list(state.hand)
+                state.hand.clear()
+                for card in old_hand:
+                    state.graveyard.append(card)
+                    state.total_discards += 1
+                    state.turn_discards += 1
+                drawn = []
+                for _ in range(hand_size):
+                    if state.library:
+                        d = state.library.pop(0)
+                        state.hand.append(d)
+                        drawn.append(d.name)
+                turn_log['spells'].append(
+                    f"Upkeep: {perm.name} -> discarded {hand_size} "
+                    f"({', '.join(discarded_names)}{suffix}) -> drew {len(drawn)}"
+                )
+
+            # Upkeep draw
+            if perm.has_upkeep_draw:
+                drawn = []
+                for _ in range(perm.upkeep_draw_count):
+                    if state.library:
+                        d = state.library.pop(0)
+                        state.hand.append(d)
+                        drawn.append(d.name)
+                if drawn:
+                    turn_log['spells'].append(f"Upkeep: {perm.name} -> draw {len(drawn)}")
+
+        # Graveyard recursion heuristic: cards with "beginning of your upkeep"
+        # + "return ... to your hand" (e.g. Master of Death, Bloodghast)
+        for card in list(state.graveyard):
+            text_lower = card.text.lower()
+            if ('beginning of your upkeep' in text_lower and
+                    re.search(r'return (it|this card) to (your|its owner.s) hand', text_lower)):
+                state.graveyard.remove(card)
+                state.hand.append(card)
+                turn_log['spells'].append(f"Upkeep: {card.name} returned from graveyard")
+
+        # =================================================================
+        # DRAW PHASE
+        # =================================================================
         if turn > 1 and state.library:
             drawn = state.library.pop(0)
             state.hand.append(drawn)
             turn_log['drawn'] = drawn.name
 
-        # === LAND DROP ===
+        # =================================================================
+        # LAND DROP
+        # =================================================================
         hand_lands = [c for c in state.hand if c.is_land]
         if hand_lands:
             hand_lands.sort(key=lambda l: -land_priority(l, state))
@@ -435,8 +777,10 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
 
         mana_left = state.total_mana
 
-        # === CAST SPELLS FROM HAND ===
-        max_iterations = 20  # safety against infinite loops
+        # =================================================================
+        # CAST SPELLS FROM HAND
+        # =================================================================
+        max_iterations = 20
         iteration = 0
         while iteration < max_iterations:
             iteration += 1
@@ -508,9 +852,8 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                             state.hand.append(d)
                             drawn_cards.append(d.name)
                     note = f"{card.name} (sac {sacced.name}) -> draw {len(drawn_cards)}"
-                    # Deadly Dispute creates a treasure
                     if 'treasure' in card.text.lower() or 'create a treasure' in card.text.lower():
-                        mana_left += 1  # immediate treasure
+                        mana_left += 1
                         state.ramp_mana += 1
                         note += " + Treasure"
 
@@ -519,10 +862,8 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                 actual_to_field = card.lands_to_field
                 actual_to_hand = card.lands_to_hand
 
-                # Check for kicker with sac creature
                 if 'kicker' in card.text.lower() and 'sacrifice a creature' in card.text.lower():
                     if sacced_creature or (state.battlefield_creatures and not card.needs_sac_creature):
-                        # Kicked!
                         if not sacced_creature and state.battlefield_creatures:
                             sacced_creature = state.battlefield_creatures.pop(0)
                             state.graveyard.append(sacced_creature)
@@ -543,9 +884,7 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                         parts.append(f"{actual_to_hand} to hand")
                     note = f"{card.name} -> {', '.join(parts)}"
 
-                # Add generic lands to battlefield
                 for _ in range(actual_to_field):
-                    # Create a basic land token (Forest as default)
                     fetched = Card(
                         name="(fetched land)",
                         cmc=0, types=['Land'], supertypes=['Basic'], subtypes=[],
@@ -568,11 +907,12 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                 state.ramp_mana += card.extra_mana
                 if card.is_creature:
                     state.battlefield_creatures.append(card)
+                    state.creatures_entered_this_turn.add(id(card))
                 else:
                     state.battlefield_other.append(card)
                 note = f"{card.name} (+{card.extra_mana} mana)"
 
-            # Non-sac draw spells
+            # Non-sac draw spells (with possible discard)
             elif card.is_draw and not card.is_sac_draw:
                 drawn_cards = []
                 for _ in range(card.draw_count):
@@ -580,49 +920,75 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                         d = state.library.pop(0)
                         state.hand.append(d)
                         drawn_cards.append(d.name)
-                note = f"{card.name} -> draw {len(drawn_cards)}"
 
-            # Creatures (just enter battlefield)
+                # Handle discard portion of draw-discard spells
+                if card.discard_count > 0 and state.hand:
+                    discards = choose_discards(state.hand, card.discard_count)
+                    actual_discarded = []
+                    for dc in discards:
+                        if dc in state.hand:
+                            state.hand.remove(dc)
+                            state.graveyard.append(dc)
+                            state.total_discards += 1
+                            state.turn_discards += 1
+                            actual_discarded.append(dc.name)
+                    note = f"{card.name} -> draw {len(drawn_cards)}, discard {len(actual_discarded)} ({', '.join(actual_discarded)})"
+
+                    # Frantic Search untap lands
+                    if 'untap' in card.text.lower() and 'land' in card.text.lower():
+                        untap_match = re.search(r'untap up to (\w+) lands', card.text.lower())
+                        if untap_match:
+                            word_to_num = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5}
+                            val = untap_match.group(1).lower()
+                            untap_count = word_to_num.get(val, int(val) if val.isdigit() else 3)
+                            mana_left += untap_count
+                            note += f", untap {untap_count} lands"
+                else:
+                    note = f"{card.name} -> draw {len(drawn_cards)}"
+
+            # Creatures (enter battlefield + ETB tokens)
             elif card.is_creature:
                 state.battlefield_creatures.append(card)
+                state.creatures_entered_this_turn.add(id(card))
+
+                if card.etb_token_count > 0:
+                    state.tokens += card.etb_token_count
+                    note = f"{card.name} -> ETB: {card.etb_token_count}x {card.etb_token_power}/{card.etb_token_toughness} {card.etb_token_type} token(s)"
 
             # Other permanents
             elif card.is_artifact or card.is_enchantment or card.is_planeswalker:
                 state.battlefield_other.append(card)
 
-            # Instants/sorceries with no modeled effect -> just cast
-            # (removal, protection, recursion, etc.)
+            # Instants/sorceries that create tokens
+            if (card.is_instant or card.is_sorcery) and card.etb_token_count > 0:
+                state.tokens += card.etb_token_count
+                note = f"{card.name} -> {card.etb_token_count}x {card.etb_token_power}/{card.etb_token_toughness} {card.etb_token_type} token(s)"
 
             turn_log['spells'].append(note)
-            # Only instants/sorceries go to graveyard; permanents stay on field
             if card.is_instant or card.is_sorcery:
                 state.graveyard.append(card)
 
-            # Recalculate mana available (ramp may have changed it)
             mana_left = state.total_mana - (state.total_mana - mana_left) if mana_left >= 0 else 0
-            # Simpler: just track spending
-            # mana_left stays as decremented
 
-        # === TRY CASTING COMMANDER ===
+        # =================================================================
+        # TRY CASTING COMMANDER
+        # =================================================================
         for cmdr in list(state.commander_zone):
             min_mana_needed = max(cmdr.color_costs.values(), default=0)
             base_cost = sum(cmdr.color_costs.values())
-            # For X spells: need base colored cost + minimum X
             if cmdr.has_x_cost:
                 min_needed = base_cost + commander_min_x
                 if mana_left >= min_needed and state.can_cast(cmdr, mana_left):
                     x_val = mana_left - base_cost
                     state.commander_zone.remove(cmdr)
                     state.battlefield_creatures.append(cmdr)
+                    state.creatures_entered_this_turn.add(id(cmdr))
                     game_log['commander_cast_turn'] = turn
 
-                    # Model X-cost ETB/cast triggers (milling, etc.)
                     revealed_cards = []
                     creatures_milled = []
                     non_creatures_to_bottom = []
                     if 'reveal cards from the top of your library' in cmdr.text.lower() and 'creature' in cmdr.text.lower():
-                        # Stickfingers-style: reveal until X creatures found
-                        # Creatures go to graveyard, rest go to bottom of library
                         creatures_found = 0
                         while creatures_found < x_val and state.library:
                             revealed = state.library.pop(0)
@@ -633,7 +999,6 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                                 state.graveyard.append(revealed)
                             else:
                                 non_creatures_to_bottom.append(revealed)
-                        # Put non-creature cards on bottom of library in random order
                         rng.shuffle(non_creatures_to_bottom)
                         state.library.extend(non_creatures_to_bottom)
 
@@ -642,17 +1007,148 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                         note += f" -> revealed {len(revealed_cards)} cards, {', '.join(creatures_milled)} to graveyard"
                     turn_log['spells'].append(note)
                     mana_left = 0
+
+                    # ETB tokens on commander
+                    if cmdr.etb_token_count > 0:
+                        state.tokens += cmdr.etb_token_count
+                        turn_log['spells'].append(
+                            f"  -> ETB: {cmdr.etb_token_count}x {cmdr.etb_token_type} token(s)"
+                        )
             else:
                 if mana_left >= cmdr.cmc and state.can_cast(cmdr, mana_left):
                     state.commander_zone.remove(cmdr)
                     state.battlefield_creatures.append(cmdr)
+                    state.creatures_entered_this_turn.add(id(cmdr))
                     game_log['commander_cast_turn'] = turn
                     turn_log['spells'].append(cmdr.name)
                     mana_left -= cmdr.cmc
 
+                    if cmdr.etb_token_count > 0:
+                        state.tokens += cmdr.etb_token_count
+                        turn_log['spells'].append(
+                            f"  -> ETB: {cmdr.etb_token_count}x {cmdr.etb_token_type} token(s)"
+                        )
+
+        # =================================================================
+        # ACTIVATED ABILITIES PHASE
+        # Use activated abilities on permanents with remaining mana/cards.
+        # Prioritizes: token creation > draw > mana production
+        # =================================================================
+        max_ability_iter = 10
+        ability_iter = 0
+        while ability_iter < max_ability_iter:
+            ability_iter += 1
+            best_ability = None
+            best_card = None
+            best_priority = 999
+
+            for perm in state.battlefield_creatures + state.battlefield_other:
+                for ability in perm.activated_abilities:
+                    # Check mana
+                    if ability['mana_cost'] > mana_left:
+                        continue
+                    # Check color requirements
+                    can_pay = True
+                    for color, cnt in ability.get('color_requirements', {}).items():
+                        if not state.color_available(color):
+                            can_pay = False
+                            break
+                    if not can_pay:
+                        continue
+                    # Check tap requirement
+                    if ability['needs_tap']:
+                        if not perm.is_creature:
+                            pass  # artifacts/enchantments don't have summoning sickness
+                        elif not state.can_tap_creature(perm):
+                            continue
+                    # Check discard requirement
+                    if ability['discard_cost'] > 0:
+                        non_land_hand = [c for c in state.hand if not c.is_land]
+                        if len(state.hand) < ability['discard_cost']:
+                            continue
+                        # Keep at least 1 card in hand unless we have lots
+                        if len(state.hand) - ability['discard_cost'] < 1 and len(state.hand) < 4:
+                            continue
+
+                    # Priority: tokens (0) > draw (1) > mana (2)
+                    prio = {'create_token': 0, 'draw': 1, 'add_mana': 2}.get(ability['type'], 3)
+                    if prio < best_priority:
+                        best_priority = prio
+                        best_ability = ability
+                        best_card = perm
+
+            if best_ability is None:
+                break
+
+            # Execute the ability
+            ability = best_ability
+            perm = best_card
+
+            # Pay costs
+            mana_left -= ability['mana_cost']
+            if ability['needs_tap'] and perm.is_creature:
+                state.tap_creature(perm)
+            if ability['needs_tap'] and not perm.is_creature:
+                # Mark non-creature as tapped (simplified: allow once per turn)
+                # Remove from available abilities by tracking
+                perm.activated_abilities = [a for a in perm.activated_abilities if a is not ability]
+
+            # Pay discard cost
+            if ability['discard_cost'] > 0:
+                discards = choose_discards(state.hand, ability['discard_cost'])
+                discarded_names = []
+                for dc in discards:
+                    if dc in state.hand:
+                        state.hand.remove(dc)
+                        state.graveyard.append(dc)
+                        state.total_discards += 1
+                        state.turn_discards += 1
+                        discarded_names.append(dc.name)
+
+            # Resolve effect
+            if ability['type'] == 'create_token':
+                count = ability.get('token_count', 1)
+                state.tokens += count
+                ttype = ability.get('token_type', 'creature')
+                disc_str = f" (discard: {', '.join(discarded_names)})" if ability['discard_cost'] > 0 else ""
+                turn_log['activations'].append(
+                    f"{perm.name}{disc_str} -> {count}x {ttype} token(s)"
+                )
+            elif ability['type'] == 'draw':
+                draw_count = ability.get('draw_count', 1)
+                drawn = []
+                for _ in range(draw_count):
+                    if state.library:
+                        d = state.library.pop(0)
+                        state.hand.append(d)
+                        drawn.append(d.name)
+                disc_str = f" (discard: {', '.join(discarded_names)})" if ability['discard_cost'] > 0 else ""
+                turn_log['activations'].append(
+                    f"{perm.name}{disc_str} -> draw {len(drawn)}"
+                )
+            elif ability['type'] == 'add_mana':
+                produced = ability.get('mana_produced', 1)
+                mana_left += produced
+                disc_str = f" (discard: {', '.join(discarded_names)})" if ability['discard_cost'] > 0 else ""
+                turn_log['activations'].append(
+                    f"{perm.name}{disc_str} -> +{produced} mana"
+                )
+
+        # =================================================================
+        # COMBAT PHASE — attack triggers for creatures not sick
+        # =================================================================
+        for perm in state.battlefield_creatures:
+            if perm.attack_token_count > 0 and id(perm) not in state.creatures_entered_this_turn:
+                state.tokens += perm.attack_token_count
+                turn_log['spells'].append(
+                    f"Combat: {perm.name} attacks -> {perm.attack_token_count}x {perm.attack_token_type} token(s)"
+                )
+
         turn_log['mana_after'] = state.total_mana
         turn_log['hand_size'] = len(state.hand)
         turn_log['lands_on_field'] = len(state.battlefield_lands)
+        turn_log['tokens'] = state.tokens
+        turn_log['total_discards'] = state.total_discards
         game_log['turns'].append(turn_log)
 
     game_log['final_mana'] = state.total_mana
@@ -661,6 +1157,8 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
     game_log['board_creatures'] = [c.name for c in state.battlefield_creatures]
     game_log['board_other'] = [c.name for c in state.battlefield_other]
     game_log['graveyard'] = [c.name for c in state.graveyard]
+    game_log['final_tokens'] = state.tokens
+    game_log['final_discards'] = state.total_discards
 
     return game_log
 
@@ -687,11 +1185,16 @@ def print_game(game, game_num, is_land_fn):
         if t['spells']:
             for s in t['spells']:
                 print(f"    Cast: {s}")
-        else:
+        if t.get('activations'):
+            for a in t['activations']:
+                print(f"    Activate: {a}")
+        if not t['spells'] and not t.get('activations'):
             print(f"    (no spells cast)")
         ramp_extra = t['mana_after'] - t['lands_on_field']
         ramp_str = f" + {ramp_extra} ramp" if ramp_extra else ""
-        print(f"    -> {t['mana_after']} mana ({t['lands_on_field']} lands{ramp_str}), {t['hand_size']} in hand")
+        tokens_str = f", {t['tokens']} tokens" if t['tokens'] else ""
+        disc_str = f", {t['total_discards']} discards" if t['total_discards'] else ""
+        print(f"    -> {t['mana_after']} mana ({t['lands_on_field']} lands{ramp_str}), {t['hand_size']} in hand{tokens_str}{disc_str}")
 
     print(f"\n  === End state ===")
     ramp = game['final_mana'] - game['final_lands']
@@ -699,6 +1202,10 @@ def print_game(game, game_num, is_land_fn):
     print(f"  Hand: {game['final_hand']} cards")
     board = game['board_creatures'] + game['board_other']
     print(f"  Board: {', '.join(board) if board else '(empty)'}")
+    if game['final_tokens']:
+        print(f"  Tokens: {game['final_tokens']}")
+    if game['final_discards']:
+        print(f"  Total discards: {game['final_discards']}")
     if game['commander_cast_turn']:
         print(f"  Commander cast: Turn {game['commander_cast_turn']}")
     else:
@@ -744,9 +1251,7 @@ def print_aggregate(games, num_turns, commanders):
         ramps = []
         for t in g['turns'][:3]:
             for s in t['spells']:
-                # Simple heuristic: if the spell note contains mana/land keywords
                 spell_name = s.split(' (')[0].split(' ->')[0].split(' +')[0]
-                # Check if it was a ramp spell by looking at the note
                 if any(x in s for x in ['mana)', 'to field', 'to hand', 'Treasure']):
                     ramps.append(spell_name)
         if ramps:
@@ -772,13 +1277,35 @@ def print_aggregate(games, num_turns, commanders):
     avg_hand = sum(g['final_hand'] for g in games) / n
     print(f"\nAvg cards in hand at end: {avg_hand:.1f}")
 
+    # Token count
+    token_games = [g['final_tokens'] for g in games]
+    if any(t > 0 for t in token_games):
+        print(f"\nTokens on battlefield:")
+        print(f"  Average: {sum(token_games) / n:.1f}")
+        print(f"  Min: {min(token_games)}, Max: {max(token_games)}")
+        print(f"\n  Token progression:")
+        for turn in range(1, num_turns + 1):
+            avg = sum(g['turns'][turn - 1]['tokens'] for g in games) / n
+            if avg > 0:
+                print(f"    Turn {turn}: avg {avg:.1f}")
+
+    # Discard count
+    disc_games = [g['final_discards'] for g in games]
+    if any(d > 0 for d in disc_games):
+        print(f"\nTotal discards:")
+        print(f"  Average: {sum(disc_games) / n:.1f}")
+        print(f"  Min: {min(disc_games)}, Max: {max(disc_games)}")
+        print(f"\n  Discard progression:")
+        for turn in range(1, num_turns + 1):
+            avg = sum(g['turns'][turn - 1]['total_discards'] for g in games) / n
+            if avg > 0:
+                print(f"    Turn {turn}: avg {avg:.1f}")
+
     # Color availability by turn 2
     print(f"\nColor availability by turn 2:")
-    # Determine commander colors
     cmd_colors = set()
     for c in commanders:
         cmd_colors.update(c.color_costs.keys())
-        # Also check color identity from mana cost
         for color in 'WUBRG':
             if '{' + color + '}' in c.mana_cost:
                 cmd_colors.add(color)
@@ -787,17 +1314,12 @@ def print_aggregate(games, num_turns, commanders):
     for color in sorted(cmd_colors, key=lambda x: 'WUBRG'.index(x)):
         count = 0
         for g in games:
-            # Check lands played in first 2 turns
-            # This is approximate since we only stored land names
             has_color = False
             for t in g['turns'][:2]:
                 if t['land_played']:
-                    # We'd need card data to check this properly
-                    has_color = True  # simplified
+                    has_color = True
             if has_color:
                 count += 1
-        # This is approximate - just note it
-        # print(f"  {color_names.get(color, color)}: {count}/{n}")
 
 
 # =============================================================================
@@ -837,7 +1359,17 @@ def main():
     ramp_cards = [c for c in deck_cards if c.is_ramp]
     draw_cards = [c for c in deck_cards if c.is_draw]
     creature_cards = [c for c in deck_cards if c.is_creature]
+    token_makers = [c for c in deck_cards if c.etb_token_count > 0 or c.attack_token_count > 0]
+    discard_outlets = [c for c in deck_cards if any(a.get('discard_cost', 0) > 0 for a in c.activated_abilities)]
+    activated_cards = [c for c in deck_cards if c.activated_abilities]
+
     print(f"\nDetected: {len(ramp_cards)} ramp, {len(draw_cards)} draw, {len(creature_cards)} creatures, {land_count} lands")
+    if token_makers:
+        print(f"  Token makers: {len(token_makers)} ({', '.join(c.name for c in token_makers[:5])}{'...' if len(token_makers) > 5 else ''})")
+    if activated_cards:
+        print(f"  Activated abilities: {len(activated_cards)} ({', '.join(c.name for c in activated_cards[:5])}{'...' if len(activated_cards) > 5 else ''})")
+    if discard_outlets:
+        print(f"  Discard outlets: {len(discard_outlets)} ({', '.join(c.name for c in discard_outlets[:5])}{'...' if len(discard_outlets) > 5 else ''})")
 
     if args.seed is not None:
         base_seed = args.seed
