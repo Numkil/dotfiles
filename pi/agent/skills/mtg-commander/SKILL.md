@@ -87,6 +87,37 @@ Fetch and analyze decklists from Archidekt:
 ./scripts/deck-fetch.sh 12345 --json
 ```
 
+## Deck Goldfish (Solitaire Testing)
+
+Simulate goldfish games to test mana development, ramp consistency, and commander timing:
+
+```bash
+# Basic: 10 games, 6 turns each
+./scripts/deck-goldfish.sh 12345
+
+# Custom game count and turn depth
+./scripts/deck-goldfish.sh 12345 --games 20 --turns 8
+
+# Set minimum X for X-cost commanders (e.g., Old Stickfingers)
+./scripts/deck-goldfish.sh 12345 --commander-min-x 3
+
+# Reproducible results with a seed
+./scripts/deck-goldfish.sh 12345 --seed 42
+
+# Only show aggregate stats
+./scripts/deck-goldfish.sh 12345 --quiet
+```
+
+The simulator:
+- Draws opening hands with mulligan logic (keeps 2-5 lands)
+- Plays lands with color priority (missing colors first, then duals > basics > colorless)
+- Casts spells by priority: ramp early, then draw, then creatures, then other
+- Heuristically resolves spell effects using oracle text (land ramp, mana rocks, draw, sac-draw, kicker)
+- Tracks commander casting with optional minimum X value
+- Reports per-game logs + aggregate stats (mana curve, missed land drops, ramp rate, commander timing)
+
+**Limitations:** This is a goldfish (no opponent). Spells that target opponents or interact with combat are cast but effects not modeled. Activated abilities on permanents are not modeled. Modal spells default to draw modes. Sac-draw spells require a creature/artifact on board.
+
 ## Deck Validation
 
 Validate an Archidekt deck against Commander format rules:
@@ -146,6 +177,18 @@ When answering rules questions:
 # Then look up specific cards of interest with card-lookup.sh
 ```
 
+### "Goldfish my deck" / "Test my mana base"
+```bash
+# Basic goldfish test
+./scripts/deck-goldfish.sh DECK_ID
+
+# For X-cost commanders, set minimum X
+./scripts/deck-goldfish.sh DECK_ID --commander-min-x 3
+
+# More games for better statistics
+./scripts/deck-goldfish.sh DECK_ID --games 20 --turns 8 --quiet
+```
+
 ### "Verify/review my deck description"
 
 Deck descriptions and primers frequently contain errors — wrong power/toughness, incorrect oracle text paraphrasing, or references to cards that aren't actually in the deck. Follow this workflow:
@@ -175,6 +218,51 @@ Deck descriptions and primers frequently contain errors — wrong power/toughnes
 
 - **Scryfall**: Requests should be spaced by 50-100ms. The scripts make single requests so this is generally fine. Do not bulk-query in tight loops.
 - **Archidekt**: No official rate limit documentation, but be reasonable with requests.
+
+## Price Checking
+
+When suggesting cards, **always verify prices** before presenting them. Do NOT guess prices from memory.
+
+Use Scryfall's API to get EUR prices (sourced from Cardmarket):
+```bash
+curl -s "https://api.scryfall.com/cards/named?fuzzy=CARD_NAME" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('prices',{}); print(f\"EUR: {p.get('eur','N/A')}  EUR foil: {p.get('eur_foil','N/A')}\")"
+```
+
+For batch price checks:
+```bash
+for card in "Card One" "Card Two" "Card Three"; do
+  echo "=== $card ==="
+  encoded=$(python3 -c "import urllib.parse; print(urllib.parse.quote(\"$card\"))")
+  curl -s "https://api.scryfall.com/cards/named?fuzzy=$encoded" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('prices',{}); print(f\"  EUR: {p.get('eur','N/A')}  EUR foil: {p.get('eur_foil','N/A')}\")"
+  sleep 0.2
+done
+```
+
+**Note:** Cards with apostrophes in their name (e.g. "Bolas's Citadel") will break the python quoting. Use the fuzzy search without the apostrophe (e.g. "Bolas Citadel") or handle quoting carefully.
+
+When the user has a budget constraint, check prices BEFORE suggesting cards, not after. Present price alongside every suggestion.
+
+## Mana Restriction Awareness
+
+When building around specific mana sources, **always check what that mana can and cannot pay for**. Common restrictions:
+
+- **Powerstone tokens**: "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell." — CAN pay for: artifact spells, activated abilities (on any permanent), equip costs, special costs. CANNOT pay for: creature spells (unless artifact creature), instants, sorceries, enchantments, planeswalkers.
+- **Treasure tokens**: No restrictions (any color, any purpose).
+- **Eldrazi Spawn/Scion**: Sacrifice for {C}, no spending restrictions but colorless only.
+- **Gold tokens**: Any one color, no other restrictions.
+
+When suggesting payoffs for decks built around restricted mana sources, verify every suggestion is actually payable. Do not suggest instants/sorceries as payoffs for Powerstone mana, etc.
+
+## Deck Building Session Workflow
+
+When helping a user build a deck iteratively:
+
+1. Fetch the decklist and understand the commander + gameplan first
+2. Ask clarifying questions about win condition, budget, power level, and theme preferences before suggesting cards
+3. Present suggestions **one at a time** unless asked otherwise — let the user decide before moving on
+4. For each suggestion, include: card name, Scryfall link, EUR price, and a clear explanation of why it fits THIS specific deck
+5. Track budget spent vs remaining when the user has a budget constraint
+6. When a session is interrupted, offer to write a context file summarizing progress, pending suggestions, and remaining needs
 
 ## Tips
 
