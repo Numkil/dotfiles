@@ -77,10 +77,18 @@ class Card:
     produces_colors: set = field(default_factory=set)
 
     # Token creation on ETB/cast
-    etb_token_count: int = 0         # number of tokens created on ETB
+    etb_token_count: int = 0         # number of creature tokens created on ETB
     etb_token_power: int = 0         # power of created tokens
     etb_token_toughness: int = 0
     etb_token_type: str = ""         # e.g. "Zombie", "Soldier"
+
+    # Non-creature artifact token creation on ETB/cast
+    etb_clue_count: int = 0          # Clue tokens ({2}, Sac: Draw a card)
+    etb_treasure_count: int = 0      # Treasure tokens (Sac: Add one mana)
+    etb_blood_count: int = 0         # Blood tokens ({1}, Discard, Sac: Draw a card)
+    etb_food_count: int = 0          # Food tokens ({2}, Sac: Gain 3 life)
+    etb_powerstone_count: int = 0    # Powerstone tokens (nonartifact restricted mana)
+    etb_map_count: int = 0           # Map tokens ({1}, Sac: explore)
 
     # Activated abilities (parsed from oracle text)
     activated_abilities: list = field(default_factory=list)
@@ -127,6 +135,7 @@ class Card:
         # Classify using oracle text heuristics + categories
         self._classify()
         self._parse_etb_tokens()
+        self._parse_noncreature_tokens()
         self._parse_attack_tokens()
         self._parse_activated_abilities()
         self._parse_upkeep_triggers()
@@ -320,6 +329,66 @@ class Card:
                 self.etb_token_toughness = int(token_match.group(3))
                 self.etb_token_type = token_match.group(4).capitalize()
                 break
+
+    def _parse_noncreature_tokens(self):
+        """Parse non-creature artifact token creation (Clue, Treasure, Blood, Food, Powerstone, Map).
+        
+        Detects:
+        - 'investigate' keyword or 'create a Clue token' in ETB/cast triggers
+        - 'create a Treasure token' / 'create two Treasure tokens' etc.
+        - 'create a Blood token' / 'create a Food token'
+        - 'create a Powerstone token' / 'create a Map token'
+        Also detects instant/sorcery token creation.
+        """
+        text_lower = self.text.lower()
+        is_permanent = self.is_creature or self.is_artifact or self.is_enchantment or self.is_planeswalker
+        if not is_permanent and not self.is_sorcery and not self.is_instant:
+            return
+
+        # Check for 'Investigate' keyword (always means create a Clue on ETB/trigger)
+        if 'Investigate' in self.keywords:
+            self.etb_clue_count = max(self.etb_clue_count, 1)
+
+        word_to_num = {'a': 1, 'an': 1, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5}
+
+        # Token types to detect: (field_name, pattern_name)
+        token_types = [
+            ('etb_clue_count', 'clue'),
+            ('etb_treasure_count', 'treasure'),
+            ('etb_blood_count', 'blood'),
+            ('etb_food_count', 'food'),
+            ('etb_powerstone_count', 'powerstone'),
+            ('etb_map_count', 'map'),
+        ]
+
+        lines = text_lower.split('\n')
+        for line in lines:
+            # Skip activated abilities
+            if re.match(r'^\{.*\}.*:', line):
+                continue
+            if re.match(r'^[^:]+,\s*\{.*\}.*:', line):
+                continue
+
+            # Must be an ETB/cast trigger, or instant/sorcery
+            is_trigger = ('enters' in line or 'when you cast' in line
+                         or 'enters the battlefield' in line)
+            is_spell = (self.is_instant or self.is_sorcery)
+            if not is_trigger and not is_spell:
+                continue
+
+            # Also detect 'investigate' in trigger lines
+            if 'investigate' in line:
+                self.etb_clue_count = max(self.etb_clue_count, 1)
+
+            for field_name, token_name in token_types:
+                # Match: "create [a/an/two/three] [Token_type] token[s]"
+                pattern = rf'create (\w+) {token_name} tokens?'
+                match = re.search(pattern, line)
+                if match:
+                    count_word = match.group(1).lower()
+                    count = word_to_num.get(count_word, int(count_word) if count_word.isdigit() else 1)
+                    current = getattr(self, field_name)
+                    setattr(self, field_name, max(current, count))
 
     def _parse_attack_tokens(self):
         """Parse 'attacks' + 'create' token patterns."""
@@ -555,6 +624,12 @@ class GameState:
     commander_zone: list = field(default_factory=list)
     ramp_mana: int = 0  # extra mana from rocks/dorks/enchantments
     tokens: int = 0  # total creature tokens on battlefield
+    clue_tokens: int = 0      # Clue tokens ({2}, Sac: Draw a card)
+    treasure_tokens: int = 0  # Treasure tokens (Sac: Add one mana of any color)
+    blood_tokens: int = 0     # Blood tokens ({1}, Discard, Sac: Draw a card)
+    food_tokens: int = 0      # Food tokens ({2}, Sac: Gain 3 life)
+    powerstone_tokens: int = 0  # Powerstone tokens (restricted mana)
+    map_tokens: int = 0       # Map tokens ({1}, Sac: explore)
     total_discards: int = 0  # total cards discarded this game
     turn_discards: int = 0  # cards discarded this turn
     creatures_entered_this_turn: set = field(default_factory=set)  # for summoning sickness
@@ -964,6 +1039,31 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                 state.tokens += card.etb_token_count
                 note = f"{card.name} -> {card.etb_token_count}x {card.etb_token_power}/{card.etb_token_toughness} {card.etb_token_type} token(s)"
 
+            # Non-creature artifact tokens (Clue, Treasure, Blood, Food, Powerstone, Map)
+            noncreature_token_notes = []
+            if card.etb_clue_count > 0:
+                state.clue_tokens += card.etb_clue_count
+                noncreature_token_notes.append(f"{card.etb_clue_count} Clue")
+            if card.etb_treasure_count > 0:
+                state.treasure_tokens += card.etb_treasure_count
+                mana_left += card.etb_treasure_count  # Treasures are immediate mana
+                noncreature_token_notes.append(f"{card.etb_treasure_count} Treasure")
+            if card.etb_blood_count > 0:
+                state.blood_tokens += card.etb_blood_count
+                noncreature_token_notes.append(f"{card.etb_blood_count} Blood")
+            if card.etb_food_count > 0:
+                state.food_tokens += card.etb_food_count
+                noncreature_token_notes.append(f"{card.etb_food_count} Food")
+            if card.etb_powerstone_count > 0:
+                state.powerstone_tokens += card.etb_powerstone_count
+                state.ramp_mana += card.etb_powerstone_count  # Powerstones are persistent ramp
+                noncreature_token_notes.append(f"{card.etb_powerstone_count} Powerstone")
+            if card.etb_map_count > 0:
+                state.map_tokens += card.etb_map_count
+                noncreature_token_notes.append(f"{card.etb_map_count} Map")
+            if noncreature_token_notes:
+                note += f" + {', '.join(noncreature_token_notes)} token(s)"
+
             turn_log['spells'].append(note)
             if card.is_instant or card.is_sorcery:
                 state.graveyard.append(card)
@@ -1135,6 +1235,39 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                 )
 
         # =================================================================
+        # CRACK TOKENS PHASE — spend remaining mana on Clue/Blood tokens
+        # =================================================================
+        # Crack Clue tokens: {2}, Sacrifice: Draw a card
+        while state.clue_tokens > 0 and mana_left >= 2:
+            state.clue_tokens -= 1
+            mana_left -= 2
+            if state.library:
+                d = state.library.pop(0)
+                state.hand.append(d)
+                turn_log['activations'].append(f"Crack Clue -> draw ({d.name})")
+
+        # Crack Blood tokens: {1}, Discard a card, Sacrifice: Draw a card
+        while state.blood_tokens > 0 and mana_left >= 1 and len(state.hand) >= 2:
+            state.blood_tokens -= 1
+            mana_left -= 1
+            discards = choose_discards(state.hand, 1)
+            if discards:
+                dc = discards[0]
+                state.hand.remove(dc)
+                state.graveyard.append(dc)
+                state.total_discards += 1
+                state.turn_discards += 1
+            if state.library:
+                d = state.library.pop(0)
+                state.hand.append(d)
+                turn_log['activations'].append(f"Crack Blood (discard {dc.name}) -> draw ({d.name})")
+
+        # Crack Treasure tokens for mana (already counted as immediate mana above,
+        # but unspent Treasures persist — track for reporting)
+        # Note: Treasures are consumed when used for mana during casting.
+        # Here we just track remaining ones.
+
+        # =================================================================
         # COMBAT PHASE — attack triggers for creatures not sick
         # =================================================================
         for perm in state.battlefield_creatures:
@@ -1148,6 +1281,10 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
         turn_log['hand_size'] = len(state.hand)
         turn_log['lands_on_field'] = len(state.battlefield_lands)
         turn_log['tokens'] = state.tokens
+        turn_log['clue_tokens'] = state.clue_tokens
+        turn_log['treasure_tokens'] = state.treasure_tokens
+        turn_log['blood_tokens'] = state.blood_tokens
+        turn_log['food_tokens'] = state.food_tokens
         turn_log['total_discards'] = state.total_discards
         game_log['turns'].append(turn_log)
 
@@ -1158,6 +1295,10 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
     game_log['board_other'] = [c.name for c in state.battlefield_other]
     game_log['graveyard'] = [c.name for c in state.graveyard]
     game_log['final_tokens'] = state.tokens
+    game_log['final_clue_tokens'] = state.clue_tokens
+    game_log['final_treasure_tokens'] = state.treasure_tokens
+    game_log['final_blood_tokens'] = state.blood_tokens
+    game_log['final_food_tokens'] = state.food_tokens
     game_log['final_discards'] = state.total_discards
 
     return game_log
@@ -1192,7 +1333,18 @@ def print_game(game, game_num, is_land_fn):
             print(f"    (no spells cast)")
         ramp_extra = t['mana_after'] - t['lands_on_field']
         ramp_str = f" + {ramp_extra} ramp" if ramp_extra else ""
-        tokens_str = f", {t['tokens']} tokens" if t['tokens'] else ""
+        tokens_parts = []
+        if t['tokens']:
+            tokens_parts.append(f"{t['tokens']} creature")
+        if t.get('clue_tokens'):
+            tokens_parts.append(f"{t['clue_tokens']} Clue")
+        if t.get('treasure_tokens'):
+            tokens_parts.append(f"{t['treasure_tokens']} Treasure")
+        if t.get('blood_tokens'):
+            tokens_parts.append(f"{t['blood_tokens']} Blood")
+        if t.get('food_tokens'):
+            tokens_parts.append(f"{t['food_tokens']} Food")
+        tokens_str = f", tokens: {', '.join(tokens_parts)}" if tokens_parts else ""
         disc_str = f", {t['total_discards']} discards" if t['total_discards'] else ""
         print(f"    -> {t['mana_after']} mana ({t['lands_on_field']} lands{ramp_str}), {t['hand_size']} in hand{tokens_str}{disc_str}")
 
@@ -1202,8 +1354,19 @@ def print_game(game, game_num, is_land_fn):
     print(f"  Hand: {game['final_hand']} cards")
     board = game['board_creatures'] + game['board_other']
     print(f"  Board: {', '.join(board) if board else '(empty)'}")
+    token_parts = []
     if game['final_tokens']:
-        print(f"  Tokens: {game['final_tokens']}")
+        token_parts.append(f"{game['final_tokens']} creature")
+    if game.get('final_clue_tokens'):
+        token_parts.append(f"{game['final_clue_tokens']} Clue")
+    if game.get('final_treasure_tokens'):
+        token_parts.append(f"{game['final_treasure_tokens']} Treasure")
+    if game.get('final_blood_tokens'):
+        token_parts.append(f"{game['final_blood_tokens']} Blood")
+    if game.get('final_food_tokens'):
+        token_parts.append(f"{game['final_food_tokens']} Food")
+    if token_parts:
+        print(f"  Tokens: {', '.join(token_parts)}")
     if game['final_discards']:
         print(f"  Total discards: {game['final_discards']}")
     if game['commander_cast_turn']:
@@ -1277,10 +1440,10 @@ def print_aggregate(games, num_turns, commanders):
     avg_hand = sum(g['final_hand'] for g in games) / n
     print(f"\nAvg cards in hand at end: {avg_hand:.1f}")
 
-    # Token count
+    # Token count (creature)
     token_games = [g['final_tokens'] for g in games]
     if any(t > 0 for t in token_games):
-        print(f"\nTokens on battlefield:")
+        print(f"\nCreature tokens on battlefield:")
         print(f"  Average: {sum(token_games) / n:.1f}")
         print(f"  Min: {min(token_games)}, Max: {max(token_games)}")
         print(f"\n  Token progression:")
@@ -1288,6 +1451,14 @@ def print_aggregate(games, num_turns, commanders):
             avg = sum(g['turns'][turn - 1]['tokens'] for g in games) / n
             if avg > 0:
                 print(f"    Turn {turn}: avg {avg:.1f}")
+
+    # Non-creature artifact tokens
+    for token_key, token_name in [('final_clue_tokens', 'Clue'), ('final_treasure_tokens', 'Treasure'),
+                                   ('final_blood_tokens', 'Blood'), ('final_food_tokens', 'Food')]:
+        vals = [g.get(token_key, 0) for g in games]
+        if any(v > 0 for v in vals):
+            print(f"\n{token_name} tokens (remaining at end):")
+            print(f"  Average: {sum(vals) / n:.1f}, Max: {max(vals)}")
 
     # Discard count
     disc_games = [g['final_discards'] for g in games]
@@ -1360,12 +1531,17 @@ def main():
     draw_cards = [c for c in deck_cards if c.is_draw]
     creature_cards = [c for c in deck_cards if c.is_creature]
     token_makers = [c for c in deck_cards if c.etb_token_count > 0 or c.attack_token_count > 0]
+    noncreature_token_makers = [c for c in deck_cards if c.etb_clue_count > 0 or c.etb_treasure_count > 0
+                                or c.etb_blood_count > 0 or c.etb_food_count > 0
+                                or c.etb_powerstone_count > 0 or c.etb_map_count > 0]
     discard_outlets = [c for c in deck_cards if any(a.get('discard_cost', 0) > 0 for a in c.activated_abilities)]
     activated_cards = [c for c in deck_cards if c.activated_abilities]
 
     print(f"\nDetected: {len(ramp_cards)} ramp, {len(draw_cards)} draw, {len(creature_cards)} creatures, {land_count} lands")
     if token_makers:
         print(f"  Token makers: {len(token_makers)} ({', '.join(c.name for c in token_makers[:5])}{'...' if len(token_makers) > 5 else ''})")
+    if noncreature_token_makers:
+        print(f"  Artifact token makers (Clue/Treasure/Blood/Food/Powerstone/Map): {len(noncreature_token_makers)} ({', '.join(c.name for c in noncreature_token_makers[:5])}{'...' if len(noncreature_token_makers) > 5 else ''})"    )
     if activated_cards:
         print(f"  Activated abilities: {len(activated_cards)} ({', '.join(c.name for c in activated_cards[:5])}{'...' if len(activated_cards) > 5 else ''})")
     if discard_outlets:

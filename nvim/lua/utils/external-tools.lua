@@ -3,6 +3,7 @@ local M = {}
 M.lsps = {
   -- scripting LSP
   phpactor = {
+    filetypes = { 'php', 'twig' },
     init_options = {
       ['language_server_worse_reflection.inlay_hints.enable'] = true,
       ['language_server_worse_reflection.inlay_hints.params'] = false,
@@ -43,17 +44,6 @@ M.lsps = {
   },
   bashls = {},
   -- templating LSP
-  twiggy_language_server = {
-    settings = {
-      twiggy = {
-        framework = 'craft',
-        phpExecutable = '/opt/homebrew/bin/php',
-        diagnostics = {
-          twigCsFixer = true,
-        },
-      },
-    },
-  },
   html = {
     filetypes = { 'twig', 'html', 'vue' },
   },
@@ -71,7 +61,6 @@ M.formatters = {
   'php-cs-fixer',
   'mdformat',
   'eslint_d',
-  'luacheck',
 }
 
 -- NOTE: This tells conform which formatters to enable
@@ -89,7 +78,6 @@ M.linters_by_ft = {
   markdown = { 'vale' },
   php = { 'php' },
   twig = { 'twig-cs-fixer' },
-  lua = { 'luacheck' },
   javascript = { 'eslint_d' },
   typescript = { 'eslint_d' },
 }

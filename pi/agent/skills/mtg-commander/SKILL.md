@@ -115,10 +115,12 @@ The simulator:
 - Heuristically resolves spell effects using oracle text (land ramp, mana rocks, draw, sac-draw, kicker)
 - Resolves draw-then-discard spells properly (Frantic Search, Compulsive Research, etc.)
 - Detects and creates tokens from ETB/cast triggers and attack triggers
+- Detects and tracks non-creature artifact tokens (Clue, Treasure, Blood, Food, Powerstone, Map)
+- Cracks Clue tokens for draw and Blood tokens for loot with remaining mana after spell casting
 - Detects and uses **activated abilities** on permanents (discard outlets, tap-to-create-token, tap-for-mana, tap-to-draw) with remaining mana after spell casting
 - Resolves **upkeep triggers** (forced discard, draw, discard-hand-then-draw wheels, graveyard recursion)
 - Tracks commander casting with optional minimum X value
-- Reports per-game logs + aggregate stats (mana curve, missed land drops, ramp rate, commander timing, **token count**, **discard count**)
+- Reports per-game logs + aggregate stats (mana curve, missed land drops, ramp rate, commander timing, **token count**, **artifact token count**, **discard count**)
 
 **Limitations:** This is a goldfish (no opponent). Spells that target opponents or interact with combat are cast but effects not modeled. Triggered abilities on permanents that fire from game events (e.g., "whenever you discard") are not generically modeled — only the card's own activated abilities and ETB/upkeep/attack triggers are resolved. Modal spells default to draw modes. Sac-draw spells require a creature/artifact on board. For decks with complex trigger chains (discard payoffs, death triggers, etc.), a custom goldfish script may still be needed.
 
