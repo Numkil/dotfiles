@@ -1,1 +1,0 @@
-return { 'pablopunk/pi.nvim' }

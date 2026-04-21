@@ -7,3 +7,4 @@
 .ddev/docker-compose.phpmyadmin.yaml
 .ddev/addon-metadata/phpmyadmin/manifest.yaml
 ludtwig-config.toml
+.claude

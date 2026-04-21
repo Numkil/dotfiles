@@ -9,7 +9,9 @@ to heuristically resolve spells without hardcoding card names.
 Features:
 - Draws opening hands with mulligan logic (keeps 2-5 lands)
 - Plays lands with color priority
-- Casts spells by priority: ramp early, then draw, then creatures, then other
+- Tries to cast the commander FIRST each turn if castable at --commander-min-x
+  (models real-play decision of holding ramp when commander is castable this turn)
+- After commander attempt, casts spells by priority: ramp > draw > creatures > other
 - Resolves spell effects: land ramp, mana rocks, draw, sac-draw, kicker
 - Resolves draw-then-discard spells (tracks discards)
 - Detects and creates tokens from ETB/cast triggers
@@ -851,6 +853,52 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
             turn_log['land_played'] = chosen.name
 
         mana_left = state.total_mana
+
+        # =================================================================
+        # TRY CASTING COMMANDER FIRST (if castable at min_x)
+        # This models the real-play decision of holding ramp when you could cast commander instead.
+        # =================================================================
+        for cmdr in list(state.commander_zone):
+            base_cost = sum(cmdr.color_costs.values())
+            if cmdr.has_x_cost:
+                min_needed = base_cost + commander_min_x
+                if mana_left >= min_needed and state.can_cast(cmdr, mana_left):
+                    x_val = mana_left - base_cost
+                    state.commander_zone.remove(cmdr)
+                    state.battlefield_creatures.append(cmdr)
+                    state.creatures_entered_this_turn.add(id(cmdr))
+                    game_log['commander_cast_turn'] = turn
+                    revealed_cards = []
+                    creatures_milled = []
+                    non_creatures_to_bottom = []
+                    if 'reveal cards from the top of your library' in cmdr.text.lower() and 'creature' in cmdr.text.lower():
+                        creatures_found = 0
+                        while creatures_found < x_val and state.library:
+                            revealed = state.library.pop(0)
+                            revealed_cards.append(revealed.name)
+                            if revealed.is_creature:
+                                creatures_found += 1
+                                creatures_milled.append(revealed.name)
+                                state.graveyard.append(revealed)
+                            else:
+                                non_creatures_to_bottom.append(revealed)
+                        rng.shuffle(non_creatures_to_bottom)
+                        state.library.extend(non_creatures_to_bottom)
+                    note = f"{cmdr.name} (X={x_val}) [cast-first]"
+                    if revealed_cards:
+                        note += f" -> revealed {len(revealed_cards)} cards, {', '.join(creatures_milled)} to graveyard"
+                    turn_log['spells'].append(note)
+                    mana_left = 0
+                    if cmdr.etb_token_count > 0:
+                        state.tokens += cmdr.etb_token_count
+            else:
+                if mana_left >= cmdr.cmc and state.can_cast(cmdr, mana_left):
+                    state.commander_zone.remove(cmdr)
+                    state.battlefield_creatures.append(cmdr)
+                    state.creatures_entered_this_turn.add(id(cmdr))
+                    game_log['commander_cast_turn'] = turn
+                    turn_log['spells'].append(cmdr.name + " [cast-first]")
+                    mana_left -= cmdr.cmc
 
         # =================================================================
         # CAST SPELLS FROM HAND

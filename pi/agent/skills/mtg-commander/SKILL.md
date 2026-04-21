@@ -111,7 +111,8 @@ Simulate goldfish games to test mana development, ramp consistency, and commande
 The simulator:
 - Draws opening hands with mulligan logic (keeps 2-5 lands)
 - Plays lands with color priority (missing colors first, then duals > basics > colorless)
-- Casts spells by priority: ramp early, then draw, then creatures, then other
+- **Tries to cast the commander FIRST** each turn if it's castable at `--commander-min-x` (models the real-play decision of holding ramp when you could cast commander instead)
+- After commander attempt, casts remaining spells by priority: ramp early, then draw, then creatures, then other
 - Heuristically resolves spell effects using oracle text (land ramp, mana rocks, draw, sac-draw, kicker)
 - Resolves draw-then-discard spells properly (Frantic Search, Compulsive Research, etc.)
 - Detects and creates tokens from ETB/cast triggers and attack triggers
@@ -123,6 +124,31 @@ The simulator:
 - Reports per-game logs + aggregate stats (mana curve, missed land drops, ramp rate, commander timing, **token count**, **artifact token count**, **discard count**)
 
 **Limitations:** This is a goldfish (no opponent). Spells that target opponents or interact with combat are cast but effects not modeled. Triggered abilities on permanents that fire from game events (e.g., "whenever you discard") are not generically modeled — only the card's own activated abilities and ETB/upkeep/attack triggers are resolved. Modal spells default to draw modes. Sac-draw spells require a creature/artifact on board. For decks with complex trigger chains (discard payoffs, death triggers, etc.), a custom goldfish script may still be needed.
+
+### ⚠️ CRITICAL: Always Sanity-Check Goldfish Output Against Hand-Math
+
+The goldfish uses heuristic priorities that may not match optimal play for a specific deck. **Never present goldfish numbers as ground truth without first validating they match reasonable play sequences.**
+
+**Before drawing conclusions from goldfish statistics, do this check:**
+
+1. **Work out by hand what the "minimum viable" cast turn should be.** E.g., for an X-cost commander like Old Stickfingers at X=3 (5 mana needed): natural curve gets 5 mana on T5, one ramp spell brings it to T4, one 1-CMC ritual or T2 rock brings it to T3.
+
+2. **Estimate a rough floor probability** using hypergeometric math. If the deck has ~50 mana sources in 99 cards, the chance of having enough ramp + lands for a T4–T5 cast should be well above 50%.
+
+3. **If the goldfish number is dramatically lower than your hand-math estimate, the sim is wrong, not you.** Do not rationalize surprising numbers. Investigate.
+
+4. **Common sim pitfalls for X-cost and high-value commanders:**
+   - The sim casts ramp spells BEFORE trying to cast the commander each turn. If you have 5 mana + Cultivate + Stickfingers playable, the sim casts Cultivate (3 mana), then tries Stickfingers with 2 mana left → fails. Real play would hold the ramp.
+   - The sim's `cast_priority` is: ramp → draw → creatures → other. Commanders are cast in a separate block AFTER hand spells.
+   - For decks where the commander IS the win condition (X-cost grave-fillers, combo enablers), this mis-orders play.
+
+5. **When in doubt, run a verbose per-game log (not `--quiet`) and trace 3–5 games manually** to see if the sim is sequencing like a real player would.
+
+6. **If the user's intuition conflicts with sim output, trust the user first and investigate the sim.** Users who built their deck often have a better mental model than the heuristic simulator.
+
+**Lesson from a real session:** A user's 36-land / 13-ramp Old Stickfingers deck showed T5 cast rate of 15.8% and T6 of 32% in the sim. The user pushed back — their own hand-math showed T5 should be achievable 60%+ of the time. Investigation revealed the sim was casting 3-mana ramp spells first and depleting mana before attempting Stickfingers. After patching the sim to try the commander FIRST when castable at min_x, the real rates were T5 = 85%, T6 = 90%. The user was right; the sim was wrong. An earlier deck-building recommendation based on the bad numbers had to be retracted.
+
+**When recommending deck changes based on goldfish data, explicitly note:** "These numbers assume the sim plays correctly. If the numbers look surprisingly bad, we should verify before making changes."
 
 ## Deck Validation
 

@@ -43,6 +43,7 @@ M.lsps = {
     },
   },
   bashls = {},
+  twiggy_language_server = {},
   -- templating LSP
   html = {
     filetypes = { 'twig', 'html', 'vue' },

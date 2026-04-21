@@ -9,6 +9,7 @@ $git_status\
 $nodejs\
 [](fg:#8da101 bg:#dfa000)\
 ${custom.ddev}\
+${custom.ddev_php}\
 [ ](fg:#dfa000)\
 $character"""
 
@@ -48,6 +49,14 @@ disabled = true
 [custom.ddev]
 description = "Shows the currently active ddev project as we should really only be running 1 at a time"
 command = "docker ps | awk 'NR==1 {offset=index($0,\"NAMES\")};NR>1{print substr($0,offset)}' | sort -f | grep '\\-web' | sed 's/.*\\-\\(.*\\)\\-.*/\\1/' | head -1"
-symbol = " "
+symbol = ""
 when = "[[ -d .ddev ]]"
+format = '[[ $symbol $output ](fg:#EEE8D5 bg:#dfa000)]($style)'
+
+[custom.ddev_php]
+description = "Shows the PHP version configured in .ddev/config.yaml"
+command = "awk -F'\"' '/^php_version/{print $2}' .ddev/config.yaml"
+symbol = "󰌟"
+when = "test -f .ddev/config.yaml"
+style = "bg:#dfa000"
 format = '[[ $symbol $output ](fg:#EEE8D5 bg:#dfa000)]($style)'

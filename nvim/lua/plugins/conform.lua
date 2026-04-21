@@ -1,4 +1,4 @@
-local opts = {
+require('conform').setup {
   formatters = {
     php_cs_fixer = {
       inherit = true,
@@ -20,14 +20,5 @@ local opts = {
     end
 
     return { timeout_ms = 500, lsp_format = 'fallback' }
-  end,
-}
-
-return {
-  'stevearc/conform.nvim',
-  cmd = { 'ConformInfo' },
-  event = 'BufWritePre',
-  config = function()
-    require('conform').setup(opts)
   end,
 }

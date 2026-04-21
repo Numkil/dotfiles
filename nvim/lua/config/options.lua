@@ -1,6 +1,9 @@
 -- [[ Setting options ]]
 -- See `:help vim.o`
 
+-- Suppress the default Neovim intro screen (lazy.nvim used to do this automatically)
+vim.opt.shortmess:append 'I'
+
 -- configure how line wrapping is displayed
 vim.o.wrap = true
 vim.o.linebreak = true
