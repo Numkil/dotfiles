@@ -57,7 +57,7 @@ vim.pack.add {
   'https://github.com/stevearc/conform.nvim',
   'https://github.com/mfussenegger/nvim-lint',
   'https://github.com/lewis6991/gitsigns.nvim',
-  'https://github.com/stevearc/oil.nvim',
+  { src = 'https://github.com/barrettruth/canola.nvim', version = 'canola' },
   { src = 'https://github.com/smoka7/hop.nvim', version = vim.version.range('*') },
   'https://github.com/folke/todo-comments.nvim',
   'https://github.com/DrKJeff16/project.nvim',
