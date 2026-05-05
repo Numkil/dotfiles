@@ -1,17 +1,52 @@
 ---
 name: mtg-commander
-description: "Magic: The Gathering Commander/EDH format assistant. Use when the user asks about MTG Commander rules, card lookups, deck building, card interactions, deck analysis, or anything related to the Commander format. Can look up cards via Scryfall, fetch decklists from Archidekt, and validate decks against Commander rules."
+description: "Magic: The Gathering format assistant for Commander/EDH and Pauper. Use when the user asks about MTG Commander or Pauper rules, card lookups, deck building, card interactions, deck analysis, or anything related to these formats. Can look up cards via Scryfall, fetch decklists from Archidekt, and validate decks against format rules."
 ---
 
 # MTG Commander Skill
 
-This skill provides tools for working with Magic: The Gathering's Commander (EDH) format. It can look up card details, fetch and analyze decklists, validate decks against format rules, and answer rules questions.
+This skill provides tools for working with Magic: The Gathering's Commander (EDH) and Pauper formats. It can look up card details, fetch and analyze decklists, validate decks against format rules, and answer rules questions.
 
 ## Quick Start
 
 Before answering any Commander question, read the [Commander rules reference](references/commander-rules.md) to ground your answers in the official rules.
 
+For Pauper questions, see the [Pauper Format](#pauper-format) section below — the rules differ significantly from Commander.
+
 For Scryfall search syntax, see the [Scryfall syntax reference](references/scryfall-syntax.md).
+
+## Pauper Format
+
+Pauper is a 1v1 constructed format with rules distinct from Commander.
+
+### Deck Construction
+- Minimum **60 cards** in the main deck (not 100)
+- Up to **15 card sideboard**
+- Up to **4 copies** of any non-basic land card (basic lands unlimited)
+- No commander mechanic — regular 1v1 game rules, no command zone
+
+### Card Legality
+A card is Pauper-legal if it has **ever been printed at common rarity** in any official Magic product, including paper sets (any edition) and Magic Online (MTGO) exclusive sets. The card's current or most recent printing rarity is irrelevant.
+
+**Important:** `card-lookup.sh` shows the most recent printing, which may be uncommon or rare. A card that looks uncommon may still be Pauper-legal. Always verify with Scryfall's `f:pauper` filter or check the `pauper` field in the API response directly:
+
+```bash
+# Verify Pauper legality (also works around apostrophe issues)
+curl -s "https://api.scryfall.com/cards/named?fuzzy=CARD_NAME" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('legalities',{}).get('pauper','N/A'))"
+
+# Search for Pauper-legal cards matching criteria
+./scripts/card-search.sh "f:pauper c:b o:discard" 10
+```
+
+### Ban List
+Pauper has its own ban list separate from Commander. Never assume a card is legal based on rarity alone — always verify via Scryfall. Example: Hymn to Tourach was printed at common but is **banned** in Pauper.
+
+### Apostrophe Workaround
+The batch lookup and price scripts break on card names with apostrophes (e.g. "Raven's Crime", "Night's Whisper"). For those cards, call the Scryfall API directly using the fuzzy endpoint with the apostrophe stripped:
+
+```bash
+curl -s "https://api.scryfall.com/cards/named?fuzzy=Ravens+Crime" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('prices',{}); l=d.get('legalities',{}); print(f\"Name: {d['name']} | Pauper: {l.get('pauper')} | EUR: {p.get('eur')}\")"
+```
 
 ## Card Lookup
 
@@ -296,6 +331,34 @@ When helping a user build a deck iteratively:
 5. Track budget spent vs remaining when the user has a budget constraint
 6. When a session is interrupted, offer to write a context file summarizing progress, pending suggestions, and remaining needs
 
+### Hand Composition Constraints
+
+Early in deck analysis, ask not just "what colors do you need" but **"what card properties need to be in your hand at game time?"** Some commanders care about what's sitting in hand (e.g., Rielle + Cinder Seer — lands and colorless artifacts are dead cards for the reveal mechanic). This shapes the entire mana package and changes which ramp pieces are correct.
+
+### Archetype Alignment Check: Storm vs Hold-Cards
+
+Before recommending creatures that reward casting many spells (Guttersnipe, Young Pyromancer, storm payoffs), ask: **does this deck want to cast spells quickly or hold a large hand?** These are opposite gameplans. A hand-size deck actively wants to hold cards and drip them out — pyromancer/storm archetypes are wrong for it and will confuse the gameplan. Confirm the deck's rhythm before recommending any "cast spells fast" payoff.
+
+### Rescan Discipline
+
+If a user asks you to rescan the decklist before each card evaluation, honor it **every single time** without being reminded again. Don't rely on a cached list from earlier in the session — cards may have been added or removed between evaluations.
+
+### Exile ≠ Discard
+
+When evaluating cards for a discard-synergy commander, **always explicitly flag the exile vs discard distinction**. "Exile your hand" does NOT trigger Rielle, Tergrid, Syr Konrad, etc. Cards like Wheel of Potential say "exile your hand" — this is a known trap. If there's any ambiguity, look up the oracle text and call it out directly.
+
+### Replacement Effect Stacking
+
+When evaluating damage multipliers (Fiery Emancipation, Rollercrusher Ride, Furnace of Rath, etc.), proactively work through the stacking math with any multipliers already in the deck. Replacement effects from sources you control apply to ALL damage you deal — including triggered sources like Repercussion. Show the combined multiplier explicitly (e.g., 3× × 2× = 6×) rather than presenting each card in isolation.
+
+## Writing Deck Primers
+
+- **Tone**: Direct and matter-of-fact. No opening flavor quotes, no sales-pitch enthusiasm. Match the user's own register.
+- **Length**: Maximum ~13 paragraphs. If a section can be combined without losing information, combine it.
+- **Accuracy**: Before writing, rescan the decklist. Every card mentioned must be in the deck. Look up oracle text for any card whose mechanics you're describing — do not paraphrase from memory.
+- **Weaknesses**: Be honest about them. If the commander has no built-in recursion, say so plainly.
+- **When the user corrects a claim**: Update the assessment immediately. Do not defend the original position.
+
 ## Tips
 
 - Scryfall fuzzy search is forgiving — "thassa deep" will find "Thassa, Deep-Dwelling"
@@ -303,3 +366,4 @@ When helping a user build a deck iteratively:
 - The Archidekt deck format number 3 = Commander/EDH
 - When helping with deck building, consider: mana curve, ramp, card draw, removal, win conditions, and mana base
 - A typical Commander deck wants: ~36-38 lands, 10+ ramp, 10+ card draw, 5-10 removal, and the rest toward the deck's strategy
+- Cards with apostrophes break the batch lookup script — call the Scryfall API directly for those (e.g., "Bolas Citadel" without the apostrophe works as a fuzzy match)
