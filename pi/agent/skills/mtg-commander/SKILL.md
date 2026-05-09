@@ -122,6 +122,41 @@ Fetch and analyze decklists from Archidekt:
 ./scripts/deck-fetch.sh 12345 --json
 ```
 
+## Editing Archidekt Decklists
+
+Move cards between categories, remove cards, or add new cards directly on Archidekt.
+
+**Requires:** `ARCHIDEKT_USERNAME` and `ARCHIDEKT_PASSWORD` set as environment variables.
+
+```bash
+# Move a card to a different category (use the deck card ID, not the Scryfall card ID)
+./scripts/deck-edit.sh 19369270 move 3081476402 "Recursion"
+
+# Remove a card from the deck entirely
+./scripts/deck-edit.sh 19369270 remove 2785909287
+
+# Add a card by name to a category
+./scripts/deck-edit.sh 19369270 add "Sol Ring" "Ramp"
+```
+
+**Finding card IDs:** Fetch the deck JSON and filter by name:
+```bash
+curl -s "https://archidekt.com/api/decks/DECK_ID/cards/" | python3 -c "
+import sys, json
+cards = json.load(sys.stdin)
+for c in cards:
+    name = c.get('card',{}).get('oracleCard',{}).get('name','')
+    if 'SEARCH_TERM' in name.lower():
+        print(f\"ID: {c['id']} | {name} | {c['categories']}\")
+"
+```
+
+**Auth note:** The API uses JWT. Credentials are loaded from `.env` in the skill root (git-ignored). Copy `.env.example` to `.env` and fill in your details:
+```
+ARCHIDEKT_USERNAME=yourusername
+ARCHIDEKT_PASSWORD=yourpassword
+```
+
 ## Deck Goldfish (Solitaire Testing)
 
 Simulate goldfish games to test mana development, ramp consistency, and commander timing:
