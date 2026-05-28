@@ -33,6 +33,8 @@ TURNS=6
 CMD_MIN_X=0
 SEED=""
 QUIET=""
+ASHNOD_VIGILANCE=""
+EXTRA_ARGS=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -41,6 +43,9 @@ while [ $# -gt 0 ]; do
     --commander-min-x) CMD_MIN_X="$2"; shift 2 ;;
     --seed) SEED="$2"; shift 2 ;;
     --quiet) QUIET="1"; shift ;;
+    --ashnod-vigilance) ASHNOD_VIGILANCE="1"; shift ;;
+    --exclude) EXTRA_ARGS="$EXTRA_ARGS --exclude \"$2\""; shift 2 ;;
+    --include) EXTRA_ARGS="$EXTRA_ARGS --include \"$2\""; shift 2 ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
@@ -79,10 +84,20 @@ if [ "$ERROR_CHECK" != "ok" ]; then
   exit 1
 fi
 
-# Run the goldfish simulation
-echo "$RESPONSE" | python3 "${SCRIPT_DIR}/goldfish_sim.py" \
-  --games "$GAMES" \
-  --turns "$TURNS" \
-  --commander-min-x "$CMD_MIN_X" \
-  ${SEED:+--seed "$SEED"} \
-  ${QUIET:+--quiet}
+# Run the goldfish simulation (pipe via temp file to avoid eval+large JSON issues)
+TMPFILE=$(mktemp /tmp/deck-goldfish-XXXXXX.json)
+trap 'rm -f "$TMPFILE"' EXIT
+echo "$RESPONSE" > "$TMPFILE"
+
+# Build args array
+PYARGS=(--games "$GAMES" --turns "$TURNS" --commander-min-x "$CMD_MIN_X")
+[ -n "$SEED" ] && PYARGS+=(--seed "$SEED")
+[ -n "$QUIET" ] && PYARGS+=(--quiet)
+[ -n "$ASHNOD_VIGILANCE" ] && PYARGS+=(--ashnod-vigilance)
+# Parse EXTRA_ARGS string back into array (handles quoted card names)
+if [ -n "$EXTRA_ARGS" ]; then
+  eval "EXTRA_ARRAY=($EXTRA_ARGS)"
+  PYARGS+=("${EXTRA_ARRAY[@]}")
+fi
+
+python3 "${SCRIPT_DIR}/goldfish_sim.py" "${PYARGS[@]}" < "$TMPFILE"

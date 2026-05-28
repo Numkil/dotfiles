@@ -157,6 +157,33 @@ ARCHIDEKT_USERNAME=yourusername
 ARCHIDEKT_PASSWORD=yourpassword
 ```
 
+## Combo Finder (Commander Spellbook)
+
+Find infinite combos and near-misses in a deck using [Commander Spellbook](https://commanderspellbook.com):
+
+```bash
+# Basic: complete combos + up to 2 cards away
+./scripts/deck-combos.sh 12345
+
+# By URL
+./scripts/deck-combos.sh "https://archidekt.com/decks/12345/my-deck"
+
+# Only show complete combos and 1-card-away near-misses
+./scripts/deck-combos.sh 12345 --max-missing 1
+
+# Show step-by-step instructions for each combo
+./scripts/deck-combos.sh 12345 --verbose
+```
+
+The script:
+- Queries Commander Spellbook for each card in the deck (~0.1s per card)
+- Deduplicates across cards and filters for Commander-legal combos
+- Reports three tiers: **complete** (all cards present), **1 card away**, **2 cards away**
+- Shows what each combo produces (infinite damage, infinite mana, etc.) and bracket rating
+- The 2-cards-away list can be long (100s of combos) — use `--max-missing 1` to focus on near-misses
+
+**Note:** Scans 80–100 cards against the Spellbook database; expect ~20–30 seconds runtime.
+
 ## Deck Goldfish (Solitaire Testing)
 
 Simulate goldfish games to test mana development, ramp consistency, and commander timing:
@@ -291,6 +318,18 @@ When answering rules questions:
 ./scripts/deck-goldfish.sh DECK_ID --games 20 --turns 8 --quiet
 ```
 
+### "Find combos in my deck" / "What combos does my deck have?"
+```bash
+# Find complete combos + near-misses
+./scripts/deck-combos.sh DECK_ID
+
+# Show only complete combos and 1-card near-misses (faster, less noise)
+./scripts/deck-combos.sh DECK_ID --max-missing 1
+
+# Show step-by-step instructions
+./scripts/deck-combos.sh DECK_ID --verbose
+```
+
 ### "Verify/review my deck description"
 
 Deck descriptions and primers frequently contain errors — wrong power/toughness, incorrect oracle text paraphrasing, or references to cards that aren't actually in the deck. Follow this workflow:
@@ -393,6 +432,56 @@ When evaluating damage multipliers (Fiery Emancipation, Rollercrusher Ride, Furn
 - **Accuracy**: Before writing, rescan the decklist. Every card mentioned must be in the deck. Look up oracle text for any card whose mechanics you're describing — do not paraphrase from memory.
 - **Weaknesses**: Be honest about them. If the commander has no built-in recursion, say so plainly.
 - **When the user corrects a claim**: Update the assessment immediately. Do not defend the original position.
+
+## Pauper Simulation Discipline
+
+When building or updating Monte Carlo sims for Pauper decks, **always look up oracle text before coding any card**. Do not rely on memory for CMC, effects, or triggers.
+
+### ⚠️ CRITICAL: Verify Oracle Text Before Coding
+
+Run `card-lookup.sh` (or the Scryfall API) for every card you model in a sim — even cards you think you know well. CMC errors and fabricated abilities have invalidated entire sim sessions in the past.
+
+**Named examples of past errors (do not repeat these):**
+
+| Card | What was modeled | Actual oracle text |
+|------|------------------|--------------------|
+| **Fear of Lost Teeth** | Tagged as "pinger" — could tap to deal 1 damage repeatedly, enabling YAAD combo lines. Also incorrectly described as having native deathtouch. | 1/1 Enchantment Creature — Nightmare. **No keywords, no deathtouch.** Death trigger only: "When ~ dies, deal 1 damage to target, gain 1 life." Cannot tap to deal damage. NOT a pinger. |
+| **Mephitic Draught** | CMC 3, modeled with a "-3/-3 removal effect" | CMC 2 (1B). Artifact: ETB draw 1/lose 1 life; goes to GY draw 1/lose 1 life. **No removal effect at all.** |
+| **Jarl of the Forsaken** | CMC 2 | CMC 4 (3B). Flash creature; ETB destroy a damaged creature. |
+| **Fanatical Offering** | CMC 3 | CMC 2 (1B). Sac a creature or artifact → draw 2 + create a Map token. |
+| **Toxin Analysis** | CMC 2 | CMC 1 (B). Instant: target creature gets deathtouch+lifelink until EOT, then Investigate. |
+| **Arms of Hadar** | Modeled as -3/-3 to all; CMC 3 | CMC 4 (3B). -2/-2 to **target player's** creatures (not global, not -3/-3). |
+
+### Pinger Board Logic
+
+When coding `has_pinger_board` or equivalent checks, only count **Cuombajj Witches** (the actual pinger). Do NOT include Fear of Lost Teeth — it cannot deal damage except when it dies.
+
+```python
+# CORRECT
+has_pinger_board = board.get("Cuombajj Witches", 0) > 0
+
+# WRONG — Fear is not a pinger
+has_pinger_board = board.get("Cuombajj Witches", 0) > 0 or board.get("Fear of Lost Teeth", 0) > 0
+```
+
+### CMC Errors Compound
+
+A wrong CMC affects every game, every matchup, across all sims. A card with CMC 2 coded as CMC 3 will appear unplayable in early turns in every simulation. If results look surprisingly bad or good for a card, verify the CMC first.
+
+### Surprising Sim Results = Verify the Model
+
+If sim output seems too optimistic or too pessimistic for a card or interaction, **do not rationalize it or draw deck-building conclusions from it**. Investigate the model first. The most dangerous error is proposing to cut or add cards based on sim data when the sim has a fabricated ability.
+
+**Lesson from a real session:** Multiple iterations of deck advice were built around Mephitic Draught being a removal spell (the invented -3/-3 effect). When oracle text was finally verified, the actual draw engine it provided completely changed the deck's mana/draw math — and the advice had to be retracted.
+
+### Sim Workflow Checklist
+
+Before running any updated sim:
+1. Look up oracle text for every card in the deck list that has any non-trivial effect
+2. Verify CMC matches mana cost in the sim definition
+3. Verify trigger conditions (ETB, dies, tap, etc.) — do not assume
+4. Check that `has_pinger_board` / `has_any_pinger` logic only counts real pingers
+5. Verify threshold values for board sweepers (e.g., -2/-2 kills toughness ≤ 2, not ≤ 3)
 
 ## Tips
 

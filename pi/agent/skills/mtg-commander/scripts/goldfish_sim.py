@@ -104,10 +104,15 @@ class Card:
     upkeep_discard_count: int = 0
     has_upkeep_discard_draw: bool = False  # "discard hand, draw that many"
     has_upkeep_forced_discard: bool = False  # Bottomless Pit style
+    has_upkeep_creature_token: bool = False   # creates creature token at upkeep
+    upkeep_token_is_amass: bool = False       # amass mechanic (single growing Army)
 
     # Attack triggers
     attack_token_count: int = 0
     attack_token_type: str = ""
+
+    # Keywords granted to equipped/enchanted creature (for keyword tracking)
+    granted_keywords: set = field(default_factory=set)
 
     def __post_init__(self):
         self.is_land = 'Land' in self.types
@@ -142,6 +147,7 @@ class Card:
         self._parse_activated_abilities()
         self._parse_upkeep_triggers()
         self._parse_discard_effect()
+        self._parse_granted_keywords()
 
     def _classify(self):
         text_lower = self.text.lower()
@@ -393,16 +399,19 @@ class Card:
                     setattr(self, field_name, max(current, count))
 
     def _parse_attack_tokens(self):
-        """Parse 'attacks' + 'create' token patterns."""
+        """Parse 'attacks' + 'create' token patterns.
+        Works on creatures, artifacts (equipment), and enchantments — all can have attack triggers.
+        """
         text_lower = self.text.lower()
-        if not self.is_creature:
+        if not (self.is_creature or self.is_artifact or self.is_enchantment):
             return
 
         lines = text_lower.split('\n')
         for line in lines:
-            if 'attacks' in line and 'create' in line:
+            # Match "whenever equipped/this creature/you attack(s)" + "create"
+            if ('attacks' in line or ('you attack' in line)) and 'create' in line:
                 token_match = re.search(
-                    r'create (\w+) (\d+)/(\d+) .{0,30}?(\w+) creature tokens?',
+                    r'create (\w+) (\d+)/(\d+) .{0,40}?(\w+) creature tokens?',
                     line
                 )
                 if token_match:
@@ -545,6 +554,43 @@ class Card:
                     self.has_upkeep_draw = True
                     self.upkeep_draw_count = word_to_num.get(val, int(val) if val.isdigit() else 1)
 
+            # creature token creation at upkeep (including amass)
+            if 'create' in line or 'amass' in line:
+                self._parse_upkeep_creature_tokens(line)
+
+    def _parse_upkeep_creature_tokens(self, line):
+        """Detect creature token creation (including amass) in an upkeep trigger line."""
+        # amass mechanic (Dreadhorde Invasion, etc.)
+        if 'amass' in line:
+            self.has_upkeep_creature_token = True
+            self.upkeep_token_is_amass = True
+            return
+        # explicit "create a ... creature token"
+        token_match = re.search(r'create (\w+) (\d+)/(\d+) .{0,40}?(\w+) creature tokens?', line)
+        if token_match:
+            self.has_upkeep_creature_token = True
+
+    def _parse_granted_keywords(self):
+        """Parse keywords this card grants to the equipped/enchanted creature."""
+        if not (self.is_artifact or self.is_enchantment):
+            return
+        text_lower = self.text.lower()
+        keywords = [
+            'vigilance', 'hexproof', 'shroud', 'indestructible', 'lifelink',
+            'deathtouch', 'haste', 'first strike', 'double strike', 'flying',
+            'reach', 'trample', 'menace', 'skulk', 'ward',
+        ]
+        # "can't be blocked" → treat as unblockable
+        if "can't be blocked" in text_lower and ('equip' in text_lower or 'enchant' in text_lower):
+            self.granted_keywords.add('unblockable')
+        for kw in keywords:
+            # "equipped creature has/gains [kw]" or "equipped creature ... has [kw]"
+            if re.search(rf'equipped creature .{{0,40}}{re.escape(kw)}', text_lower):
+                self.granted_keywords.add(kw)
+            # Aura-style "enchanted creature has [kw]"
+            if re.search(rf'enchanted creature .{{0,40}}{re.escape(kw)}', text_lower):
+                self.granted_keywords.add(kw)
+
     def produces_color(self, color):
         """Check if this permanent can produce a specific color."""
         if color in self.produces_colors:
@@ -562,11 +608,17 @@ class Card:
 # Deck parsing
 # =============================================================================
 
-def parse_deck(data):
-    """Parse Archidekt JSON into a deck (list of Cards) + commander info."""
+def parse_deck(data, exclude_cards=None, include_cards=None):
+    """Parse Archidekt JSON into a deck (list of Cards) + commander info.
+
+    exclude_cards: list of card names to remove from the main deck (case-insensitive)
+    include_cards: list of card names to pull in from the maybeboard (case-insensitive)
+    """
     cards_in_deck = []
     commanders = []
     deck_name = data.get('name', 'Unknown')
+    exclude_lower = {c.lower() for c in (exclude_cards or [])}
+    include_lower = {c.lower() for c in (include_cards or [])}
 
     # Determine which categories are "in deck"
     included_cats = set()
@@ -577,12 +629,18 @@ def parse_deck(data):
     for entry in data.get('cards', []):
         categories = entry.get('categories', ['Uncategorized'])
         cats_lower = [c.lower() for c in categories]
+        ocard = entry.get('card', {}).get('oracleCard', {})
+        card_name_lower = ocard.get('name', '').lower()
 
-        # Skip maybeboard
+        # Skip maybeboard unless explicitly included
         if 'maybeboard' in cats_lower:
+            if card_name_lower not in include_lower:
+                continue
+
+        # Skip explicitly excluded cards
+        if card_name_lower in exclude_lower:
             continue
 
-        ocard = entry.get('card', {}).get('oracleCard', {})
         quantity = entry.get('quantity', 1)
         is_commander = 'commander' in cats_lower
 
@@ -626,6 +684,7 @@ class GameState:
     commander_zone: list = field(default_factory=list)
     ramp_mana: int = 0  # extra mana from rocks/dorks/enchantments
     tokens: int = 0  # total creature tokens on battlefield
+    tokens_created_this_turn: int = 0  # tokens created this turn (summoning sick, can't block)
     clue_tokens: int = 0      # Clue tokens ({2}, Sac: Draw a card)
     treasure_tokens: int = 0  # Treasure tokens (Sac: Add one mana of any color)
     blood_tokens: int = 0     # Blood tokens ({1}, Discard, Sac: Draw a card)
@@ -636,6 +695,11 @@ class GameState:
     turn_discards: int = 0  # cards discarded this turn
     creatures_entered_this_turn: set = field(default_factory=set)  # for summoning sickness
     tapped_creatures: set = field(default_factory=set)  # tapped creature ids
+    # Ashnod-specific tracking
+    ashnod_attacked_turns: int = 0   # turns Ashnod successfully attacked
+    exposed_turns: int = 0           # turns she attacked with zero other blockers available
+    powerstones_from_attack: int = 0  # Powerstones created by her attack trigger
+    army_token_exists: bool = False   # single Zombie Army token for amass tracking
 
     @property
     def total_mana(self):
@@ -724,7 +788,7 @@ def choose_discards(hand, count):
 # Simulation
 # =============================================================================
 
-def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
+def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x, ashnod_vigilance=False):
     """Simulate one goldfish game. Returns game log dict."""
 
     library = deck_cards.copy()
@@ -763,6 +827,7 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
         state.turn_discards = 0
         state.creatures_entered_this_turn = set()
         state.tapped_creatures = set()
+        state.tokens_created_this_turn = 0
 
         turn_log = {
             'turn': turn,
@@ -775,6 +840,9 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
             'lands_on_field': 0,
             'tokens': 0,
             'total_discards': 0,
+            'ashnod_attacked': False,
+            'exposed': False,
+            'blocker_count': -1,
         }
 
         # =================================================================
@@ -822,6 +890,22 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
                         drawn.append(d.name)
                 if drawn:
                     turn_log['spells'].append(f"Upkeep: {perm.name} -> draw {len(drawn)}")
+
+            # Upkeep creature token creation (including amass)
+            if perm.has_upkeep_creature_token:
+                if perm.upkeep_token_is_amass:
+                    # amass: create Army if none exists; otherwise the existing Army grows
+                    if not state.army_token_exists:
+                        state.tokens += 1
+                        state.tokens_created_this_turn += 1
+                        state.army_token_exists = True
+                        turn_log['spells'].append(f"Upkeep: {perm.name} -> amass -> Zombie Army token")
+                    else:
+                        turn_log['spells'].append(f"Upkeep: {perm.name} -> amass -> Army grows")
+                else:
+                    state.tokens += 1
+                    state.tokens_created_this_turn += 1
+                    turn_log['spells'].append(f"Upkeep: {perm.name} -> creature token")
 
         # Graveyard recursion heuristic: cards with "beginning of your upkeep"
         # + "return ... to your hand" (e.g. Master of Death, Bloodghast)
@@ -1076,6 +1160,7 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
 
                 if card.etb_token_count > 0:
                     state.tokens += card.etb_token_count
+                    state.tokens_created_this_turn += card.etb_token_count
                     note = f"{card.name} -> ETB: {card.etb_token_count}x {card.etb_token_power}/{card.etb_token_toughness} {card.etb_token_type} token(s)"
 
             # Other permanents
@@ -1085,6 +1170,7 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
             # Instants/sorceries that create tokens
             if (card.is_instant or card.is_sorcery) and card.etb_token_count > 0:
                 state.tokens += card.etb_token_count
+                state.tokens_created_this_turn += card.etb_token_count
                 note = f"{card.name} -> {card.etb_token_count}x {card.etb_token_power}/{card.etb_token_toughness} {card.etb_token_type} token(s)"
 
             # Non-creature artifact tokens (Clue, Treasure, Blood, Food, Powerstone, Map)
@@ -1257,6 +1343,7 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
             if ability['type'] == 'create_token':
                 count = ability.get('token_count', 1)
                 state.tokens += count
+                state.tokens_created_this_turn += count
                 ttype = ability.get('token_type', 'creature')
                 disc_str = f" (discard: {', '.join(discarded_names)})" if ability['discard_cost'] > 0 else ""
                 turn_log['activations'].append(
@@ -1316,14 +1403,96 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
         # Here we just track remaining ones.
 
         # =================================================================
-        # COMBAT PHASE — attack triggers for creatures not sick
+        # COMBAT PHASE
+        # Order matters: attack trigger tokens (Captain's Claws, etc.) fire simultaneously
+        # with Ashnod's trigger. Optimal play resolves equipment/permanent triggers first
+        # so the new tokens are available to sacrifice to Ashnod's trigger.
         # =================================================================
-        for perm in state.battlefield_creatures:
-            if perm.attack_token_count > 0 and id(perm) not in state.creatures_entered_this_turn:
+
+        # Step 1: Fire all non-Ashnod attack triggers (creatures + artifacts + enchantments).
+        # These provide sacrifice fodder for Ashnod.
+        all_permanents = state.battlefield_creatures + state.battlefield_other
+        for perm in all_permanents:
+            if perm.is_commander and 'ashnod' in perm.name.lower():
+                continue  # Ashnod handled separately below
+            is_sick = id(perm) in state.creatures_entered_this_turn
+            is_creature_perm = perm.is_creature
+            # Artifacts/enchantments with attack triggers are always "active" (no sickness)
+            if perm.attack_token_count > 0 and (not is_creature_perm or not is_sick):
                 state.tokens += perm.attack_token_count
+                state.tokens_created_this_turn += perm.attack_token_count
                 turn_log['spells'].append(
-                    f"Combat: {perm.name} attacks -> {perm.attack_token_count}x {perm.attack_token_type} token(s)"
+                    f"Combat: {perm.name} triggers -> {perm.attack_token_count}x {perm.attack_token_type} token(s)"
                 )
+
+        # Collect potential keywords Ashnod has from equipment on battlefield
+        ashnod_keywords = set()
+        ashnod_keywords.add('deathtouch')  # innate
+        for perm in state.battlefield_other:
+            ashnod_keywords.update(perm.granted_keywords)
+        turn_log['ashnod_keywords'] = sorted(ashnod_keywords)
+
+        # Step 2: Ashnod attacks (if not summoning sick)
+        ashnod = None
+        for perm in state.battlefield_creatures:
+            if perm.is_commander and 'ashnod' in perm.name.lower():
+                ashnod = perm
+                break
+
+        if ashnod and id(ashnod) not in state.creatures_entered_this_turn:
+            if not ashnod_vigilance:
+                state.tapped_creatures.add(id(ashnod))
+
+            # Sacrifice priority: old tokens > fresh tokens (still sacrificeable) > named creature
+            old_tokens = state.tokens - state.tokens_created_this_turn
+            sacrificed_label = None
+            if old_tokens > 0:
+                state.tokens -= 1
+                if state.army_token_exists and old_tokens == 1:
+                    state.army_token_exists = False
+                sacrificed_label = "creature token"
+            elif state.tokens_created_this_turn > 0:
+                state.tokens -= 1
+                state.tokens_created_this_turn -= 1
+                sacrificed_label = "creature token (fresh)"
+            else:
+                others = [c for c in state.battlefield_creatures if c is not ashnod]
+                if others:
+                    victim = others[0]
+                    state.battlefield_creatures.remove(victim)
+                    state.graveyard.append(victim)
+                    sacrificed_label = victim.name
+
+            if sacrificed_label:
+                state.powerstone_tokens += 1
+                state.ramp_mana += 1
+                state.powerstones_from_attack += 1
+                turn_log['spells'].append(
+                    f"Combat: Ashnod attacks -> sac {sacrificed_label} -> Powerstone ({state.powerstone_tokens} total)"
+                )
+            else:
+                turn_log['spells'].append("Combat: Ashnod attacks -> nothing to sac (no Powerstone)")
+
+            # Step 3: Count available blockers after combat
+            untapped_named = [
+                c for c in state.battlefield_creatures
+                if c is not ashnod
+                and id(c) not in state.tapped_creatures
+                and id(c) not in state.creatures_entered_this_turn
+            ]
+            if ashnod_vigilance:
+                untapped_named.append(ashnod)
+
+            remaining_old_tokens = max(0, state.tokens - state.tokens_created_this_turn)
+            blocker_count = len(untapped_named) + remaining_old_tokens
+
+            turn_log['ashnod_attacked'] = True
+            turn_log['blocker_count'] = blocker_count
+            turn_log['exposed'] = (blocker_count == 0)
+
+            state.ashnod_attacked_turns += 1
+            if blocker_count == 0:
+                state.exposed_turns += 1
 
         turn_log['mana_after'] = state.total_mana
         turn_log['hand_size'] = len(state.hand)
@@ -1348,6 +1517,9 @@ def simulate_game(deck_cards, commanders, rng, num_turns, commander_min_x):
     game_log['final_blood_tokens'] = state.blood_tokens
     game_log['final_food_tokens'] = state.food_tokens
     game_log['final_discards'] = state.total_discards
+    game_log['ashnod_attacked_turns'] = state.ashnod_attacked_turns
+    game_log['exposed_turns'] = state.exposed_turns
+    game_log['powerstones_from_attack'] = state.powerstones_from_attack
 
     return game_log
 
@@ -1540,6 +1712,66 @@ def print_aggregate(games, num_turns, commanders):
             if has_color:
                 count += 1
 
+    # Ashnod attack analysis
+    attacked_games = [g for g in games if g.get('ashnod_attacked_turns', 0) > 0]
+    if attacked_games:
+        print(f"\n{'=' * 65}")
+        print(f"ASHNOD ATTACK ANALYSIS")
+        print(f"{'=' * 65}")
+
+        total_attacked = sum(g['ashnod_attacked_turns'] for g in games)
+        total_exposed = sum(g['exposed_turns'] for g in games)
+        total_powerstones = sum(g['powerstones_from_attack'] for g in games)
+
+        avg_attacked = total_attacked / n
+        avg_exposed = total_exposed / n
+        avg_powerstones = total_powerstones / n
+
+        print(f"\nTurns Ashnod attacked (avg per game): {avg_attacked:.1f}")
+        print(f"Powerstones generated from attacks (avg): {avg_powerstones:.1f}")
+
+        if total_attacked > 0:
+            exposed_pct = 100 * total_exposed / total_attacked
+        else:
+            exposed_pct = 0.0
+        print(f"\nExposed turns (attacked, 0 other blockers): {avg_exposed:.1f} avg")
+        print(f"  = {exposed_pct:.0f}% of all attack turns you had no other blocker")
+
+        # Per-turn breakdown
+        print(f"\nBlocker count when Ashnod attacked (per turn):")
+        for turn in range(1, num_turns + 1):
+            attack_turns = [g['turns'][turn - 1] for g in games if g['turns'][turn - 1]['ashnod_attacked']]
+            if not attack_turns:
+                continue
+            avg_blockers = sum(t['blocker_count'] for t in attack_turns) / len(attack_turns)
+            exposed_count = sum(1 for t in attack_turns if t['exposed'])
+            exposed_turn_pct = 100 * exposed_count / len(attack_turns)
+            print(f"  Turn {turn}: avg {avg_blockers:.1f} blockers, "
+                  f"exposed {exposed_count}/{len(attack_turns)} ({exposed_turn_pct:.0f}%)")
+
+    # Ashnod keyword trajectory (equipment on battlefield)
+    all_keywords = set()
+    for g in games:
+        for t in g['turns']:
+            all_keywords.update(t.get('ashnod_keywords', []))
+    relevant_keywords = [k for k in sorted(all_keywords) if k != 'deathtouch']  # deathtouch is innate
+    if relevant_keywords:
+        print(f"\n{'=' * 65}")
+        print(f"ASHNOD KEYWORD TRAJECTORY (% of games she has each keyword by turn)")
+        print(f"{'=' * 65}")
+        print(f"  (deathtouch is innate — shown only for acquired keywords)")
+        header = f"  {'Turn':>4}  " + "  ".join(f"{k[:8]:>8}" for k in relevant_keywords)
+        print(f"\n{header}")
+        print(f"  {'-' * (len(header) - 2)}")
+        for turn in range(1, num_turns + 1):
+            turn_idx = turn - 1
+            row = f"  {turn:>4}  "
+            for kw in relevant_keywords:
+                count = sum(1 for g in games if kw in g['turns'][turn_idx].get('ashnod_keywords', []))
+                pct = 100 * count / n
+                row += f"  {pct:>7.0f}%"
+            print(row)
+
 
 # =============================================================================
 # Main
@@ -1552,10 +1784,18 @@ def main():
     parser.add_argument('--commander-min-x', type=int, default=0)
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--quiet', action='store_true')
+    parser.add_argument('--ashnod-vigilance', action='store_true',
+                        help='Model Ashnod having vigilance: she attacks but stays untapped and can block')
+    parser.add_argument('--exclude', action='append', default=[], metavar='CARD',
+                        help='Remove a card from the main deck (case-insensitive, repeatable)')
+    parser.add_argument('--include', action='append', default=[], metavar='CARD',
+                        help='Pull a card from the maybeboard into the deck (case-insensitive, repeatable)')
     args = parser.parse_args()
 
     data = json.load(sys.stdin)
-    deck_name, deck_cards, commanders = parse_deck(data)
+    deck_name, deck_cards, commanders = parse_deck(data,
+                                                    exclude_cards=args.exclude,
+                                                    include_cards=args.include)
 
     land_count = sum(1 for c in deck_cards if c.is_land)
     commander_count = len(commanders)
@@ -1572,6 +1812,12 @@ def main():
     print(f"Turns:      {args.turns}")
     if args.commander_min_x > 0:
         print(f"Cmdr min X: {args.commander_min_x}")
+    if args.ashnod_vigilance:
+        print(f"Mode:       Ashnod has vigilance (attacks + can block)")
+    if args.exclude:
+        print(f"Excluded:   {', '.join(args.exclude)}")
+    if args.include:
+        print(f"Included:   {', '.join(args.include)}")
     print(f"{'=' * 65}")
 
     # Classify some cards for info
@@ -1604,7 +1850,8 @@ def main():
     games = []
     for i in range(args.games):
         rng = random.Random(base_seed + i * 7919)
-        game = simulate_game(deck_cards, commanders, rng, args.turns, args.commander_min_x)
+        game = simulate_game(deck_cards, commanders, rng, args.turns, args.commander_min_x,
+                             ashnod_vigilance=args.ashnod_vigilance)
         games.append(game)
 
     # Print per-game logs
