@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# Edit an Archidekt deck: move cards between categories, remove cards, add cards
+# Edit an Archidekt deck: move cards between categories or remove cards.
 #
 # Usage:
 #   ./deck-edit.sh <deck_id> move <card_id> <category>
 #   ./deck-edit.sh <deck_id> remove <card_id>
-#   ./deck-edit.sh <deck_id> add <scryfall_card_name> <category>
+#
+# NOTE: The `add` command is broken as of mid-2026.
+#   - GET /api/cards/?name=... now returns "Client Unavailable" (routing broken)
+#   - POST /api/decks/$DECK_ID/cards/ now returns 405 (endpoint removed)
+#   Adding cards must be done through the Archidekt web UI.
+#   Only `move` and `remove` still work (they PATCH/DELETE existing card IDs).
 #
 # Requires:
 #   ARCHIDEKT_USERNAME and ARCHIDEKT_PASSWORD environment variables
@@ -12,7 +17,6 @@
 # Examples:
 #   ./deck-edit.sh 19369270 move 3081476402 "Recursion"
 #   ./deck-edit.sh 19369270 remove 2785909287
-#   ./deck-edit.sh 19369270 add "Sol Ring" "Ramp"
 
 set -euo pipefail
 

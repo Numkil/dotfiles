@@ -15,7 +15,7 @@ CARD_NAME="$1"
 RAW_JSON="${2:-}"
 
 # URL-encode the card name
-ENCODED_NAME=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$CARD_NAME'))")
+ENCODED_NAME=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$CARD_NAME")
 
 # Use fuzzy search for best match
 RESPONSE=$(curl -s "https://api.scryfall.com/cards/named?fuzzy=${ENCODED_NAME}")

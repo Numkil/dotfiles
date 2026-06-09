@@ -124,7 +124,7 @@ Fetch and analyze decklists from Archidekt:
 
 ## Editing Archidekt Decklists
 
-Move cards between categories, remove cards, or add new cards directly on Archidekt.
+Move cards between categories or remove cards from an existing deck.
 
 **Requires:** `ARCHIDEKT_USERNAME` and `ARCHIDEKT_PASSWORD` set as environment variables.
 
@@ -134,12 +134,11 @@ Move cards between categories, remove cards, or add new cards directly on Archid
 
 # Remove a card from the deck entirely
 ./scripts/deck-edit.sh 19369270 remove 2785909287
-
-# Add a card by name to a category
-./scripts/deck-edit.sh 19369270 add "Sol Ring" "Ramp"
 ```
 
-**Finding card IDs:** Fetch the deck JSON and filter by name:
+> ⚠️ **The `add` command in `deck-edit.sh` is broken.** As of mid-2026, Archidekt removed the `POST /api/decks/$DECK_ID/cards/` endpoint (now returns 405) and the card search endpoint `GET /api/cards/?name=...` (now returns "Client Unavailable"). **Adding cards via the API is no longer possible.** Use the Archidekt web UI to add new cards. The `move` and `remove` operations still work because they use PATCH/DELETE on existing card IDs.
+
+**Finding card IDs for move/remove:** Fetch the deck JSON and filter by name:
 ```bash
 curl -s "https://archidekt.com/api/decks/DECK_ID/cards/" | python3 -c "
 import sys, json
@@ -150,6 +149,26 @@ for c in cards:
         print(f\"ID: {c['id']} | {name} | {c['categories']}\")
 "
 ```
+
+**Getting Archidekt integer card IDs (for scripting):** The card search API is dead, but you can extract Archidekt integer card IDs from any existing deck's JSON. Each card entry has `card.id` (Archidekt integer) and `card.uid` (Scryfall printing UUID). If you need IDs for specific cards, fetch a deck that contains them:
+```python
+import subprocess, json
+
+def build_card_id_map(deck_ids):
+    card_map = {}
+    for deck_id in deck_ids:
+        result = subprocess.run(['./scripts/deck-fetch.sh', str(deck_id), '--json'], capture_output=True, text=True)
+        d = json.loads(result.stdout)
+        for entry in d.get('cards', []):
+            c = entry.get('card', {})
+            name = c.get('oracleCard', {}).get('name', '')
+            cid = c.get('id')
+            if name and cid and name not in card_map:
+                card_map[name] = cid
+    return card_map
+```
+
+**Deck creation:** Not supported via the Archidekt API. Must be done through the web UI.
 
 **Auth note:** The API uses JWT. Credentials are loaded from `.env` in the skill root (git-ignored). Copy `.env.example` to `.env` and fill in your details:
 ```
@@ -358,7 +377,26 @@ Deck descriptions and primers frequently contain errors — wrong power/toughnes
 ## API Rate Limits
 
 - **Scryfall**: Requests should be spaced by 50-100ms. The scripts make single requests so this is generally fine. Do not bulk-query in tight loops.
-- **Archidekt**: No official rate limit documentation, but be reasonable with requests.
+- **Archidekt**: Rate-limits card add operations aggressively (~35 per minute). Space requests at least 0.3s apart; back off 45s if throttled.
+
+## Scryfall Python API Notes
+
+When calling the Scryfall API from Python (`urllib.request`), you **must** include `Accept: application/json` in the request headers or you'll get HTTP 400. The shell scripts use `curl` which sets this automatically, but Python's `urllib` does not.
+
+```python
+import urllib.request, json, urllib.parse
+
+def scryfall_lookup(name):
+    encoded = urllib.parse.quote(name)
+    req = urllib.request.Request(f'https://api.scryfall.com/cards/named?fuzzy={encoded}')
+    req.add_header('Accept', 'application/json')          # required — 400 without this
+    req.add_header('User-Agent', 'MTG-Commander-Skill/1.0')
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        return json.loads(e.read())
+```
 
 ## Price Checking
 
