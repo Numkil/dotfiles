@@ -68,4 +68,5 @@ vim.pack.add {
   'https://github.com/gbprod/substitute.nvim',
   'https://github.com/NMAC427/guess-indent.nvim',
   'https://github.com/m4xshen/hardtime.nvim',
+  'https://github.com/hyawara/pack-ui.nvim',
 }
