@@ -10,6 +10,10 @@ local formatters = require('utils.external-tools').formatters
 vim.list_extend(ensure_installed, formatters)
 require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
+vim.lsp.config('*', {
+  capabilities = require('blink.cmp').get_lsp_capabilities(),
+})
+
 for server_name, config in pairs(servers) do
   vim.lsp.config(server_name, config)
 end
