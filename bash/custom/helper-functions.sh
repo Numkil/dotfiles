@@ -177,7 +177,7 @@ function extract () {
             *.xz)      unxz "$1" ;;
             *.zst)     unzstd "$1" ;;
             *.tar)     tar xf "$1" ;;
-            *.rar)     unrar x "$1" ;;
+            *.rar)     unar "$1" ;;
             *.zip)     unzip "$1" ;;
             *.Z)       uncompress "$1" ;;
             *.7z)      7z x "$1" ;;
