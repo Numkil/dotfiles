@@ -157,6 +157,18 @@ function release() {
     git push origin $(get_default_branch)
 }
 
+# find commits that added/removed a string in a file's history (git pickaxe, oneline)
+# usage: gsearchlog <term> [-- <paths...>]   (defaults to current dir if no paths given)
+function gsearchlog() {
+    local term="$1"
+    shift
+    if [ -z "$term" ]; then
+        echo "Usage: gsearchlog <term> [-- <paths...>]"
+        return 1
+    fi
+    git log --all --oneline -S"$term" -- "${@:-.}"
+}
+
 # Hide difficult logic behind extracting compressed folders
 # Use the file extension to determine which command to use
 # Note: multi-extension patterns (e.g. *.tar.gz) must come before
