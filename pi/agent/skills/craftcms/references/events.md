@@ -1,0 +1,641 @@
+# Events
+
+## Contents
+
+- Common Pitfalls
+- Event Anatomy — sender, name, event object
+- Registering Handlers — class-level, instance-level, deferred
+- Event Naming Conventions — REGISTER, DEFINE, BEFORE, AFTER, SET, AUTHORIZE
+- Key Event Sources — Element, Elements service, Fields, FieldLayout, UrlManager, View, Permissions, Plugins, ProjectConfig, Gql, Dashboard, Console, CP nav
+- Other Registerable Component Types — Utilities, Filesystems, Image Transformers, Auth Methods, Mail Transports
+- Behaviors
+- Twig Extensions
+- Registration Pattern — full plugin init example; registration scope (never gate element/field type registration by request context)
+- Custom Events in Your Plugin
+- Cross-Plugin Event Contracts — open vocabulary vs closed enum, dual event surfaces
+- Discovering Events
+
+## Documentation
+
+- Events: https://craftcms.com/docs/5.x/extend/events.html
+- Event code generator: https://craftcms.com/docs/5.x/extend/events.html#event-code-generator
+- Class reference: https://docs.craftcms.com/api/v5/craft-events-modelevent.html
+
+## Common Pitfalls
+
+- Registering handlers after events have already fired — Craft bootstraps plugins sequentially, and some events (like component registration) fire during that process. Wrap init logic in `Craft::$app->onInit()` for deferred bootstrapping.
+- Setting `$event->handled = true` unnecessarily — this stops all subsequent handlers from running, breaking other plugins that listen for the same event.
+- Not type-hinting the event object — without the correct type hint (e.g., `ModelEvent`, `RegisterComponentTypesEvent`), you miss event-specific properties like `$event->isNew` or `$event->types`.
+- Using string event names instead of class constants — no IDE autocomplete, no deprecation warnings when Craft renames events, and typos fail silently.
+- Confusing `CancelableEvent->isValid` with model validation — `isValid = false` tells the sender to halt the operation (e.g., cancel a save), it doesn't add validation errors.
+- Listening for element events on `Element::class` when you only want entries — your handler fires for every element type (assets, users, categories). Use `Entry::class` to scope.
+- Consuming another plugin's open-vocabulary event with a closed `enum` and dropping unknown values — the emitter succeeds, the consumer logs a warning at most, and the data is gone. See [Cross-Plugin Event Contracts](#cross-plugin-event-contracts).
+- Shipping a second event surface (a sink registry *and* an after-record event) without documenting both in the README — consumers mute or subscribe to one and assume they've covered the plugin. See [Cross-Plugin Event Contracts](#cross-plugin-event-contracts).
+- Gating `EVENT_REGISTER_ELEMENT_TYPES` (or `EVENT_REGISTER_FIELD_TYPES`) behind `getIsCpRequest()` — the type then vanishes from `getAllElementTypes()` in console/queue contexts, so `Gc::hardDeleteElements()` never purges its trashed rows (they pile up silently) and `resave/*` skips it. Register component types unconditionally in `init()`. See "Registration scope" under Registration Pattern.
+
+## Event Anatomy
+
+Every event has three parts:
+
+- **Sender** — the class instance that emits the event (available as `$event->sender`)
+- **Name** — a string constant on the sender class (e.g., `Element::EVENT_BEFORE_SAVE`)
+- **Event Object** — a `yii\base\Event` instance or subclass carrying event-specific data
+
+## Registering Handlers
+
+### Class-Level (Most Common)
+
+Listens for ALL occurrences of an event across all instances of a class:
+
+```php
+use craft\elements\Entry;
+use craft\events\ModelEvent;
+use yii\base\Event;
+
+Event::on(
+    Entry::class,
+    Entry::EVENT_BEFORE_SAVE,
+    function(ModelEvent $event) {
+        /** @var Entry $entry */
+        $entry = $event->sender;
+        $isNew = $event->isNew;
+    }
+);
+```
+
+### Instance-Level (Less Common)
+
+Listens on a specific object instance:
+
+```php
+Craft::$app->on(
+    \yii\base\Application::EVENT_AFTER_REQUEST,
+    function(Event $e) {
+        // Runs after every request
+    }
+);
+```
+
+### Deferred Registration
+
+Wrap handler registration in `onInit()` so events that fire during bootstrapping aren't missed:
+
+```php
+Craft::$app->onInit(function() {
+    Event::on(/* ... */);
+});
+```
+
+## Event Naming Conventions
+
+Craft follows consistent naming patterns. Understanding these tells you what an event does:
+
+| Pattern | Purpose | Example |
+|---------|---------|---------|
+| `EVENT_REGISTER_*` | Add items to a registry (types, components) | `Fields::EVENT_REGISTER_FIELD_TYPES` |
+| `EVENT_DEFINE_*` | Modify a computed value or list | `Element::EVENT_DEFINE_SIDEBAR_HTML` |
+| `EVENT_BEFORE_*` | Pre-action hook, often cancelable | `Element::EVENT_BEFORE_SAVE` |
+| `EVENT_AFTER_*` | Post-action hook, action already committed | `Element::EVENT_AFTER_SAVE` |
+| `EVENT_SET_*` | Authoritatively replace a value | `Element::EVENT_SET_ROUTE` |
+| `EVENT_AUTHORIZE_*` | Permission check delegation | `Element::EVENT_AUTHORIZE_VIEW` |
+
+### Cancelable Events
+
+Events extending `CancelableEvent` can be halted by setting `$event->isValid = false`:
+
+```php
+Event::on(Entry::class, Entry::EVENT_BEFORE_SAVE,
+    function(ModelEvent $event) {
+        $entry = $event->sender;
+
+        if ($someCondition) {
+            $event->isValid = false; // Prevents the save
+        }
+    }
+);
+```
+
+## Key Event Sources
+
+### Element Events (~47 on Element class)
+
+Already documented in `elements.md`. These fire on the **element instance itself** — `$event->sender` is the element. Use `Entry::class` or `MyElement::class` as the first argument to scope to a specific element type.
+
+### Elements Service (`craft\services\Elements`) — 33+ events
+
+These fire on the **Elements service**, not on the element instance. `$event->sender` is the service, and the element is available as a property on the event object (e.g., `$event->element`). Use these when you want to react to ALL element types, not just one:
+
+| Event | When |
+|-------|------|
+| `EVENT_BEFORE_SAVE_ELEMENT` | Before any element save |
+| `EVENT_AFTER_SAVE_ELEMENT` | After any element save |
+| `EVENT_BEFORE_DELETE_ELEMENT` | Before any element delete |
+| `EVENT_AFTER_DELETE_ELEMENT` | After any element delete |
+| `EVENT_BEFORE_RESTORE_ELEMENT` | Before soft-delete restore |
+| `EVENT_AFTER_RESTORE_ELEMENT` | After soft-delete restore |
+| `EVENT_REGISTER_ELEMENT_TYPES` | Register custom element types |
+| `EVENT_BEFORE_UPDATE_SLUG_AND_URI` | Before slug/URI computation |
+| `EVENT_AUTHORIZE_VIEW` | View permission check |
+| `EVENT_AUTHORIZE_SAVE` | Save permission check |
+| `EVENT_AUTHORIZE_CREATE_DRAFTS` | Draft creation permission |
+| `EVENT_AUTHORIZE_DELETE` | Delete permission check |
+
+### Fields Service (`craft\services\Fields`)
+
+| Event | When |
+|-------|------|
+| `EVENT_REGISTER_FIELD_TYPES` | Register custom field types |
+| `EVENT_BEFORE_SAVE_FIELD` | Before a field is saved |
+| `EVENT_AFTER_SAVE_FIELD` | After a field is saved |
+| `EVENT_BEFORE_DELETE_FIELD` | Before a field is deleted |
+| `EVENT_AFTER_DELETE_FIELD` | After a field is deleted |
+| `EVENT_BEFORE_SAVE_FIELD_LAYOUT` | Before a field layout is saved |
+| `EVENT_AFTER_SAVE_FIELD_LAYOUT` | After a field layout is saved |
+
+### Field Layout (`craft\models\FieldLayout`)
+
+| Event | When |
+|-------|------|
+| `EVENT_DEFINE_NATIVE_FIELDS` | Register native field layout elements |
+| `EVENT_DEFINE_UI_ELEMENTS` | Register UI layout elements |
+
+### URL Manager (`craft\web\UrlManager`)
+
+| Event | When |
+|-------|------|
+| `EVENT_REGISTER_CP_URL_RULES` | Register CP routes |
+| `EVENT_REGISTER_SITE_URL_RULES` | Register site/webhook routes |
+
+### View (`craft\web\View`)
+
+| Event | When |
+|-------|------|
+| `EVENT_REGISTER_CP_TEMPLATE_ROOTS` | Register CP template roots (modules) |
+| `EVENT_REGISTER_SITE_TEMPLATE_ROOTS` | Register site template roots |
+| `EVENT_BEFORE_RENDER_TEMPLATE` | Before template render |
+| `EVENT_AFTER_RENDER_TEMPLATE` | After template render |
+
+### User Permissions (`craft\services\UserPermissions`)
+
+| Event | When |
+|-------|------|
+| `EVENT_REGISTER_PERMISSIONS` | Register custom permissions |
+
+### Plugins (`craft\services\Plugins`)
+
+| Event | When |
+|-------|------|
+| `EVENT_BEFORE_INSTALL_PLUGIN` | Before plugin install |
+| `EVENT_AFTER_INSTALL_PLUGIN` | After plugin install |
+| `EVENT_BEFORE_UNINSTALL_PLUGIN` | Before plugin uninstall |
+| `EVENT_AFTER_UNINSTALL_PLUGIN` | After plugin uninstall |
+
+### Project Config (`craft\services\ProjectConfig`)
+
+| Event | When |
+|-------|------|
+| `EVENT_REBUILD` | When `project-config/rebuild` runs |
+| `EVENT_AFTER_WRITE_YAML_FILES` | After YAML files are written |
+
+### GQL (`craft\services\Gql`)
+
+See `graphql.md` for the full 9-event GraphQL event reference.
+
+### Dashboard (`craft\services\Dashboard`)
+
+| Event | When |
+|-------|------|
+| `EVENT_REGISTER_WIDGET_TYPES` | Register custom dashboard widgets |
+
+### Console Controller (`craft\console\Controller`)
+
+| Event | When |
+|-------|------|
+| `EVENT_DEFINE_ACTIONS` | Add custom actions to existing controllers |
+
+### CP Navigation (`craft\web\twig\variables\Cp`)
+
+| Event | When |
+|-------|------|
+| `EVENT_REGISTER_CP_NAV_ITEMS` | Register CP nav items (modules) |
+
+## Other Registerable Component Types
+
+Craft's component architecture extends beyond elements, fields, and controllers. These are less common but follow the same `EVENT_REGISTER_*` pattern. For detailed implementation, `WebFetch` the linked documentation.
+
+### Utilities (`craft\services\Utilities`)
+
+CP utility pages for admin tools, diagnostics, and batch operations. Extend `craft\base\Utility`. Each utility gets its own permission automatically.
+
+Doc: https://craftcms.com/docs/5.x/extend/utilities.html
+Scaffold: `ddev craft make utility --with-docblocks`
+
+```php
+Event::on(Utilities::class, Utilities::EVENT_REGISTER_UTILITIES,
+    function(RegisterComponentTypesEvent $event) {
+        $event->types[] = MyUtility::class;
+    }
+);
+```
+
+Key methods: `displayName()`, `id()`, `icon()`, `contentHtml()`, `badgeCount()`. The `contentHtml()` method returns the utility's CP page content. Badge counts show in the CP nav.
+
+### Filesystem Types (`craft\services\Fs`)
+
+Custom storage backends for assets (S3, Google Cloud, Azure). Extend `craft\base\Fs` or use a Flysystem adapter via `craft\flysystem\base\FlysystemFs`.
+
+Doc: https://craftcms.com/docs/5.x/extend/filesystem-types.html
+Scaffold: `ddev craft make filesystem-type --with-docblocks`
+
+```php
+Event::on(Fs::class, Fs::EVENT_REGISTER_FILESYSTEM_TYPES,
+    function(RegisterComponentTypesEvent $event) {
+        $event->types[] = MyFs::class;
+    }
+);
+```
+
+### Widget Types (`craft\services\Dashboard`)
+
+Dashboard widgets for the CP home screen. Extend `craft\base\Widget`. Content comes from `getBodyHtml()`, settings from `getSettingsHtml()`.
+
+Doc: https://craftcms.com/docs/5.x/extend/widget-types.html
+Scaffold: `ddev craft make widget-type --with-docblocks`
+
+```php
+Event::on(Dashboard::class, Dashboard::EVENT_REGISTER_WIDGET_TYPES,
+    function(RegisterComponentTypesEvent $event) {
+        $event->types[] = MyWidget::class;
+    }
+);
+```
+
+### Image Transformers (`craft\services\ImageTransforms`)
+
+Custom image transform backends (Imgix, Thumbor, Cloudinary). Implement `craft\base\imagetransforms\ImageTransformerInterface`.
+
+Doc: https://craftcms.com/docs/5.x/extend/image-transforms.html
+
+```php
+Event::on(ImageTransforms::class, ImageTransforms::EVENT_REGISTER_IMAGE_TRANSFORMERS,
+    function(RegisterComponentTypesEvent $event) {
+        $event->types[] = MyTransformer::class;
+    }
+);
+```
+
+### Auth Methods (`craft\services\Auth`)
+
+Custom MFA/authentication methods (Craft 5). Extend `craft\auth\methods\BaseAuthMethod`.
+
+```php
+Event::on(Auth::class, Auth::EVENT_REGISTER_METHODS,
+    function(RegisterComponentTypesEvent $event) {
+        $event->types[] = MyAuthMethod::class;
+    }
+);
+```
+
+### Mail Transport Adapters (`craft\helpers\MailerHelper`)
+
+Custom email delivery backends (Postmark, Mailgun, SES). Extend `craft\mail\transportadapters\BaseTransportAdapter`.
+
+```php
+Event::on(MailerHelper::class, MailerHelper::EVENT_REGISTER_MAILER_TRANSPORTS,
+    function(RegisterComponentTypesEvent $event) {
+        $event->types[] = MyTransportAdapter::class;
+    }
+);
+```
+
+## Behaviors
+
+Behaviors let you attach methods and properties to existing Craft classes (entries, users, assets, queries, etc.) without modifying their source. Useful for adding computed attributes or helper methods to built-in element types.
+
+Doc: https://craftcms.com/docs/5.x/extend/behaviors.html
+
+```php
+Event::on(Entry::class, Entry::EVENT_DEFINE_BEHAVIORS,
+    function(DefineBehaviorsEvent $event) {
+        $event->behaviors['my-plugin:post'] = PostBehavior::class;
+    }
+);
+```
+
+Key points:
+- `$this->owner` gives access to the element the behavior is attached to. Type-hint with `@property` docblock.
+- Behaviors survive `clone()` via `CloneFixTrait` — instance-level event handlers don't.
+- `EVENT_DEFINE_BEHAVIORS` is available on all subclasses of `craft\base\Model`, `craft\db\ActiveRecord`, `craft\db\Query`, and `craft\web\Controller`.
+- Name your behavior (`'my-plugin:post'`) to avoid collisions with other plugins.
+
+## Twig Extensions
+
+Plugins can expose custom Twig functions, filters, and variables to template developers. This is how plugins like SEOmatic, Blitz, and Navigation expose their template APIs.
+
+### Via CraftVariable (most common)
+
+Attach a variable class to `craft.myPlugin`:
+
+```php
+use craft\web\twig\variables\CraftVariable;
+
+Event::on(CraftVariable::class, CraftVariable::EVENT_INIT,
+    function(\yii\base\Event $event) {
+        /** @var CraftVariable $variable */
+        $variable = $event->sender;
+        $variable->set('myPlugin', MyVariable::class);
+    }
+);
+```
+
+Then in Twig: `craft.myPlugin.someMethod()`.
+
+The handle passed to `$variable->set()` is the **exact string** used in Twig templates. If you register `$variable->set('myplugin', ...)` (lowercase), templates must use `craft.myplugin` — not `craft.myPlugin` (camelCase). Modern Craft convention is camelCase (`craft.myPlugin`), so register with camelCase. A case mismatch between the registered handle and your documentation silently returns `null` in templates with no error.
+
+### Variable Class Pattern
+
+The variable class exposes your plugin's data to Twig templates. Typically returns element queries and service results:
+
+```php
+class MyPluginVariable
+{
+    /**
+     * Returns a new element query.
+     *
+     * @param array $criteria
+     * @return MyElementQuery
+     */
+    public function items(array $criteria = []): MyElementQuery
+    {
+        $query = MyElement::find();
+        Craft::configure($query, $criteria);
+        return $query;
+    }
+
+    /**
+     * Returns a service result.
+     */
+    public function getSettings(): ?SettingsModel
+    {
+        return MyPlugin::$plugin->getSettings();
+    }
+}
+```
+
+Twig usage:
+```twig
+{% set items = craft.myPlugin.items({ limit: 10 }).all() %}
+{% set settings = craft.myPlugin.settings %}
+```
+
+The `Craft::configure($query, $criteria)` pattern lets Twig authors pass query params directly — consistent with how `craft.entries()` works.
+
+### Via Twig Extension (advanced)
+
+For custom functions, filters, or global variables, register a Twig extension in your plugin's `init()`:
+
+```php
+// Scope to site requests only (most common), or remove the guard to register for all contexts
+if (Craft::$app->getRequest()->getIsSiteRequest()) {
+    Craft::$app->getView()->registerTwigExtension(new MyTwigExtension());
+}
+```
+
+Extend `\Twig\Extension\AbstractExtension` and override `getFunctions()`, `getFilters()`, or `getGlobals()`. Omit the `getIsSiteRequest()` guard if your extension should also be available in CP templates. Key rules:
+
+- Twig functions must **return** values, not `echo` them. Using `echo` bypasses Twig's output escaping and produces unpredictable template output.
+- Extensions should delegate to services — keep the extension as a thin adapter over your service layer, not a place for direct record queries or business logic.
+- Use `'is_safe' => ['html']` only when the function returns pre-sanitized HTML. Otherwise let Twig auto-escape.
+- `__toString()` on HTML-builder classes is a double-escape trap. `__toString()` must return `string` (PHP constraint), but Twig auto-escapes strings. If a consumer writes `{{ myBuilder }}` instead of `{{ myBuilder.render() }}`, the HTML is escaped and rendered as visible tags. Fix: have `render()` return `\Twig\Markup` (which Twig treats as pre-escaped), and document clearly that consumers must call `.render()`. `__toString()` is a convenience fallback for non-Twig contexts (logging, debugging) — not the primary rendering path.
+
+### Conditional asset bundle registration
+
+Register asset bundles scoped to the correct request context. Front-end JS should only load on site requests, CP-only assets only on CP requests. Never register a monolithic asset bundle on `EVENT_BEFORE_RENDER_TEMPLATE` without checking:
+
+```php
+if (Craft::$app->getRequest()->getIsCpRequest()) {
+    Craft::$app->getView()->registerAssetBundle(MyCpAssetBundle::class);
+}
+```
+
+## Registration Pattern
+
+The most common event pattern in plugin development — registering your component types:
+
+```php
+public function init(): void
+{
+    parent::init();
+
+    // Element types
+    Event::on(Elements::class, Elements::EVENT_REGISTER_ELEMENT_TYPES,
+        function(RegisterComponentTypesEvent $event) {
+            $event->types[] = MyElement::class;
+        }
+    );
+
+    // Field types
+    Event::on(Fields::class, Fields::EVENT_REGISTER_FIELD_TYPES,
+        function(RegisterComponentTypesEvent $event) {
+            $event->types[] = MyField::class;
+        }
+    );
+
+    // Widget types
+    Event::on(Dashboard::class, Dashboard::EVENT_REGISTER_WIDGET_TYPES,
+        function(RegisterComponentTypesEvent $event) {
+            $event->types[] = MyWidget::class;
+        }
+    );
+
+    // CP URL rules
+    Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_CP_URL_RULES,
+        function(RegisterUrlRulesEvent $event) {
+            $event->rules['my-plugin/settings'] = 'my-plugin/settings/index';
+        }
+    );
+
+    // Permissions
+    Event::on(UserPermissions::class, UserPermissions::EVENT_REGISTER_PERMISSIONS,
+        function(RegisterUserPermissionsEvent $event) {
+            $event->permissions[] = [
+                'heading' => Craft::t('my-plugin', 'My Plugin'),
+                'permissions' => $this->_buildPermissions(),
+            ];
+        }
+    );
+}
+```
+
+### Registration scope — never gate element/field type registration by request context
+
+`EVENT_REGISTER_ELEMENT_TYPES` (and `EVENT_REGISTER_FIELD_TYPES`, when the field is used outside the CP) must run in **every** request context — CP, console, *and* site. Register them **unconditionally in `init()`**. Never wrap them in a `getIsCpRequest()` / `getIsConsoleRequest()` / `getIsSiteRequest()` gate:
+
+```php
+// WRONG — types exist only for CP requests
+public function init(): void
+{
+    parent::init();
+
+    if (Craft::$app->getRequest()->getIsCpRequest()) {
+        Event::on(Elements::class, Elements::EVENT_REGISTER_ELEMENT_TYPES,
+            fn(RegisterComponentTypesEvent $e) => $e->types[] = MyElement::class);
+    }
+}
+```
+
+**Why it matters.** `Elements::getAllElementTypes()` returns Craft's 7 native types plus whatever the `EVENT_REGISTER_ELEMENT_TYPES` handlers add *in the current request* — so a context-gated registration makes your type invisible to that list everywhere else. Consumers that iterate `getAllElementTypes()` then silently skip the missing type (no error, no warning):
+
+- **`Gc::hardDeleteElements()`** — the headline symptom. Garbage collection hard-deletes trashed rows with `Db::delete(Table::ELEMENTS, ['and', <trashed condition>, ['type' => $normalElementTypes]])`, where `$normalElementTypes` comes from `getAllElementTypes()`. `php craft gc/run --delete-all-trashed` is a **console** request; if the type was CP-gated it isn't in the list, its trashed rows never match the `type` filter, and they accumulate in the `elements` table indefinitely (verified against `craftcms/cms` 5.x `Gc::hardDeleteElements()` / `Elements::getAllElementTypes()`). A real plugin leaked 5,170 orphaned trashed rows this way.
+- **`resave/*` and other console element commands** — operate over the registered element types; a missing type is simply never resaved.
+- **Element-index / search-index maintenance run from queue jobs** — the queue runs in a **console** context, so a CP-only registration is absent there too.
+
+**What legitimately *stays* gated behind `getIsCpRequest()`** (contrast — these are request-scoped by design, and gating them is correct):
+
+- CP URL rules (`EVENT_REGISTER_CP_URL_RULES`), CP asset bundles (see "Conditional asset bundle registration" above)
+- CP nav / sidebar panels and CP template hooks
+- CP-only user field layouts
+
+The line is: **anything that defines what an element/field *is*** must be registered in all contexts; **anything that renders or routes the CP** may be CP-scoped.
+
+**Detection tip.** In a console shell (`php craft shell`, or the `yii2-shell`), assert:
+
+```php
+in_array(MyElement::class, Craft::$app->getElements()->getAllElementTypes(), true); // expect true
+```
+
+If that returns `false` in console but `true` in the CP, the registration is context-gated — fix it.
+
+**A plugin's own GC hooks do not compensate.** A custom "delete expired elements" routine on `Gc::EVENT_RUN` that queries by element status won't help: soft-deleted (trashed) rows are excluded from element queries by default (`trashed(false)`), so your query never sees them. Only `Gc::hardDeleteElements()` purges trashed rows, and it depends on the type being in `getAllElementTypes()`.
+
+## Custom Events in Your Plugin
+
+Fire events so other plugins can extend your code:
+
+### Define the Event Class
+
+```php
+class MyEntityEvent extends Event
+{
+    public MyEntity $entity;
+    public bool $isNew = false;
+}
+```
+
+### Fire Events in Your Service
+
+```php
+public const EVENT_BEFORE_SAVE_ITEM = 'beforeSaveItem';
+public const EVENT_AFTER_SAVE_ITEM = 'afterSaveItem';
+
+public function saveItem(MyEntity $item): bool
+{
+    $isNew = !$item->id;
+
+    // Before event — cancelable
+    if ($this->hasEventHandlers(self::EVENT_BEFORE_SAVE_ITEM)) {
+        $this->trigger(self::EVENT_BEFORE_SAVE_ITEM, new MyEntityEvent([
+            'entity' => $item,
+            'isNew' => $isNew,
+        ]));
+    }
+
+    // ... save logic ...
+
+    // After event
+    if ($this->hasEventHandlers(self::EVENT_AFTER_SAVE_ITEM)) {
+        $this->trigger(self::EVENT_AFTER_SAVE_ITEM, new MyEntityEvent([
+            'entity' => $item,
+            'isNew' => $isNew,
+        ]));
+    }
+
+    return true;
+}
+```
+
+The `hasEventHandlers()` check is a performance optimization — avoids creating event objects when nobody's listening.
+
+## Cross-Plugin Event Contracts
+
+Once a second plugin consumes your events, the event shape is an API. Two failure modes cause invisible data loss, and both are contract problems rather than code bugs.
+
+### Open vocabulary + closed enum = silent loss
+
+If your emitter documents a value set as **open** (categories, types, tags — "additive, plugins may introduce their own"), every consumer must accept values it doesn't recognize. A consumer that validates against a **closed** `enum` and drops the mismatch has broken the contract, and the break is invisible: the emitter succeeds, the consumer logs a warning at most, and the data is gone.
+
+A real instance: a consumer's closed `Category` enum silently discarded events from three separate plugins whose categories weren't in it. The only trace was a warning-level log line nobody was reading, and no test on either side failed — the emitter's tests asserted it fired, the consumer's tests only used known values.
+
+Pick one and honor it:
+
+**Open vocabulary** — the consumer must handle unknown values, not reject them:
+
+```php
+// Consumer: accept unknown categories instead of dropping the event.
+$category = Category::tryFrom($event->category) ?? Category::Other;
+
+if ($category === Category::Other) {
+    // Keep the raw value so the record stays faithful and reportable.
+    $record->rawCategory = $event->category;
+    Craft::info("Unrecognized category '{$event->category}' recorded as Other.", __METHOD__);
+}
+```
+
+**Closed vocabulary** — then say so in the docblock, reject loudly (throw or fail the operation), and version the enum. A closed set that drops quietly is the one combination that's never acceptable.
+
+For audit-class data — anything a compliance, ledger, or activity-trail feature depends on — **silent drops are never acceptable regardless of which model you chose.** Route unknown values to a catch-all with the raw value preserved, and surface the count somewhere an operator sees.
+
+**Contract-test both directions.** One test per side, in each plugin's own suite:
+
+```php
+// In the EMITTER's suite: a documented-open value the consumer hasn't seen
+// still round-trips through a registered sink.
+it('delivers events with plugin-defined categories', function () {
+    $received = [];
+    MyPlugin::getInstance()->getBus()->setSinks([
+        fn(array $event) => $received[] = $event,
+    ]);
+
+    MyPlugin::getInstance()->getEmitter()->emit(category: 'wallet', payload: []);
+
+    expect($received)->toHaveCount(1)
+        ->and($received[0]['category'])->toBe('wallet');
+});
+
+// In the CONSUMER's suite: an unknown category is stored, not dropped.
+it('records events with unrecognized categories', function () {
+    $consumer->handle(['category' => 'not-in-my-enum', 'payload' => []]);
+
+    expect($consumer->countRecorded())->toBe(1);
+});
+```
+
+See the `craft-pest` skill's `patterns.md` (Event testing) for the harness side.
+
+### Dual event surfaces are legitimate — but both must be documented
+
+A plugin can legitimately expose two structurally independent seams: a **sink registry** it fans out to itself, and a lifecycle event (`EVENT_AFTER_RECORD` or similar) that other plugins hook, typically bridged onward to a bus. Neither implies the other, and neither is redundant — the registry is for in-process consumers, the event is for external ones.
+
+The failure is documentation, not design. An undocumented second surface produces real consumer bugs, because a consumer that mutes or subscribes to the surface it knows about assumes it has covered the plugin:
+
+- Somebody mutes the sink registry in tests and is surprised when rows still appear — the bridge → bus path was still live. (See the `craft-pest` skill's `craft-state.md` for muting all surfaces.)
+- Somebody subscribes to the event and double-counts, because a sink is also recording.
+
+**Rule: the README's events section lists every surface, with what fires on it and what it's for.** If a surface exists that you'd be annoyed to discover from source, it isn't documented enough.
+
+| Surface | Fires when | Intended consumer | Mute for tests via |
+|---------|-----------|-------------------|--------------------|
+| Sink registry | Every recorded event | In-process, same plugin | `setSinks([])` |
+| `EVENT_AFTER_RECORD` | After the row is written | Other plugins / bridges | `Event::off(...)` |
+
+Keep both surfaces in that table as the plugin evolves. A surface added in a minor release without a README entry is the same bug again.
+
+## Discovering Events
+
+- **Debug toolbar** — shows all events emitted per request when `devMode` is on
+- **Event code generator** — https://craftcms.com/docs/5.x/extend/events.html#event-code-generator
+- **Xdebug breakpoint** on `yii\base\Event::trigger()` — shows every event during a request
+- **Search source** for `EVENT_` constants in `vendor/craftcms/cms/src/`
+- **Class reference** — every class page lists its events: https://docs.craftcms.com/api/v5/
+
+An Entry class alone has ~47 events when you include inherited ones from Element, Model, and Yii base classes.

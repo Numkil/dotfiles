@@ -1,0 +1,164 @@
+# Deploy Pipeline — Build → Migrate → Release
+
+How a Git push (or manual trigger) becomes a live deploy. The three-phase pipeline, what runs in each phase, and the environment variables you can rely on at each stage.
+
+## Documentation
+
+- Deployment: https://craftcms.com/docs/cloud/deployment
+- Builds: https://craftcms.com/docs/cloud/builds
+- Environments: https://craftcms.com/docs/cloud/environments
+- Cloud extension source (cloud/up command): https://github.com/craftcms/cloud-extension-yii2/blob/main/src/cli/controllers/UpController.php
+
+## Common Pitfalls
+
+- Putting `composer install` or `npm run build` in a `.github/workflows/` action — Cloud runs both itself during the Build phase. Your action would be redundant and burn CI minutes.
+- Expecting build-time access to the production database. The Build phase runs in an isolated container with no DB connection. Anything that needs the DB (project config apply, migrations, asset publishing) runs in the Migrate phase via `php craft cloud/up`.
+- Setting custom env vars in `craft-cloud.yaml`. Custom env vars only exist in the Craft Console UI per environment — they are **not injected into the build container**. If your build needs a secret (e.g. a private NPM token), you'll need to handle it via build args from the Console UI's build-environment-variables section, not `craft-cloud.yaml`.
+- Letting build time approach the 15-minute cap. Cloud kills the build at 15 minutes. If you're close, split out the heavy work (image optimization, content sync) into queue jobs that run post-deploy.
+- Assuming a failed migration rolls back the deploy. It doesn't — Cloud keeps the previous version serving traffic while the failed deploy stays in a failure state. You fix the migration, push again.
+- Calling `Craft::$app->getCache()->flush()` (or any broad cache wipe) from a migration. During the Migrate phase the old version is still serving live traffic against the same cache; a global flush can deadlock the DB cache table and blow the CLI cap. See [Never flush the whole cache from a migration](#never-flush-the-whole-cache-from-a-migration) below.
+- Pushing from a forked repository. Cloud can't deploy forks — the connected repository must be the upstream.
+
+## The three phases
+
+Every deploy runs through these three phases in order. If a phase fails, the deploy stops and the previously-released version keeps serving traffic.
+
+### 1. Build
+
+Runs in an isolated container with the PHP and Node versions specified in `craft-cloud.yaml`.
+
+Sequence:
+
+1. Repository checkout at the deploying commit.
+2. `composer install` (always).
+3. If `node-version` is set in `craft-cloud.yaml`:
+   - `cd` into `node-path` (if set; defaults to repo root).
+   - `npm clean-install`.
+   - `npm run <npm-script>` — defaults to `build`.
+4. Artifact packaging — everything in `artifact-path` (or the `webroot` if unset) is uploaded for the next phase.
+
+Constraints:
+
+- **15-minute hard cap.** The container is killed at 15 minutes regardless of progress.
+- **No database access.** The build container can't reach the production DB.
+- **Custom env vars are not injected.** Only the system vars listed below are available.
+
+### 2. Migrate
+
+Runs the Cloud extension's `cloud/up` command against the freshly-built artifact, with full DB access.
+
+`cloud/up` does the following, in order (verified from `craftcms/cloud-extension-yii2/src/cli/controllers/UpController.php`):
+
+1. Triggers the `beforeUp` event (cancelable — plugins can abort the deploy here).
+2. Runs `setup/php-session-table` — ensures the PHP session table exists in the DB.
+3. Runs `setup/db-cache-table` — ensures the DB cache table exists.
+4. If Craft is installed, runs `up` — Craft's standard `craft up` command. Internally that is `migrate/all --no-content` (Craft + plugin migrations) → project-config apply → `migrate/up --track=content` (content migrations) → `clear-caches/compiled-templates`. So content migrations run **after** project config is applied; plugin/Craft migrations run before. The full order is in the `craftcms` skill's `migrations.md`.
+5. Purges the static cache gateway via `StaticCache::purgeGateway()` so the next request hits the freshly-deployed code.
+6. Triggers the `afterUp` event (cancelable).
+
+If any step exits non-zero, the deploy fails and the prior version keeps serving traffic.
+
+#### Never flush the whole cache from a migration
+
+This is the single most damaging thing a migration can do on Cloud, and it isn't obvious because it's harmless self-hosted.
+
+The Migrate phase runs `craft up` against the new build **while the previously-released version is still serving live traffic** (see [Failed deploys](#failed-deploys) — nothing is rolled forward until Release). Both versions share one cache. Now consider what the data cache actually is: if Redis/Valkey isn't provisioned for the environment, Craft falls back to `craft\cache\DbCache` — a single MySQL cache table (see `extension.md` → "Cache, queue, and session wiring").
+
+A migration that calls `Craft::$app->getCache()->flush()` — or any broad cache wipe — issues a `DELETE` across that whole table. The very next requests (served by both code versions, under live traffic) immediately repopulate it, re-caching DB table schemas and other data. The concurrent `DELETE` + `INSERT` contention on one MySQL table can deadlock — MySQL error **1205, "Lock wait timeout exceeded"** — and on a large schema can run long enough to approach the CLI cap (≈890s) and fail the whole deploy.
+
+**Rules:**
+
+- **Never** call `Craft::$app->getCache()->flush()`, `clear-caches/all`, or any global cache wipe from a migration.
+- Invalidate **only what changed** — `Craft::$app->getElements()->invalidateCachesForElement($element)`, tag-based invalidation, or `TemplateCaches::invalidateCachesByElementId()`.
+- If a deploy genuinely needs a full cache clear, do it as a separate post-deploy step via the Console command runner (`clear-caches/all`), not inside the migration that runs during the Migrate phase.
+- Recovering from a *failed* migration is the one time you touch the table directly: `TRUNCATE cache` clears stale mutex locks that block retries (run it via the Console command runner). That's a manual recovery action, not something a migration should ever do to itself.
+
+### 3. Release
+
+The new build is promoted to receive traffic. Edge caches are already purged in the Migrate phase, so the first request after release hits the new build cleanly.
+
+## Trigger modes
+
+Deploys are triggered from the Craft Console UI per environment.
+
+- **On Push** — Cloud subscribes to the branch and deploys every push automatically. Default for production environments.
+- **Manual** — Cloud waits for a click in the Console. Useful for staging environments where you want to control deploys independently of branch state.
+
+The trigger mode is per-environment, not per-project — your production environment can be On Push while staging is Manual, or vice versa.
+
+## Environment variables
+
+Cloud distinguishes **build-time** and **runtime** environment variables. They're not the same set.
+
+### Build-time system variables
+
+Available in the Build container only. Set automatically by Cloud:
+
+| Variable | Purpose |
+|---|---|
+| `CRAFT_CLOUD_PROJECT_ID` | The Cloud project ID |
+| `CRAFT_CLOUD_ENVIRONMENT_ID` | The environment being built |
+| `CRAFT_CLOUD_BUILD_ID` | This specific build |
+| `CRAFT_CLOUD_CDN_BASE_URL` | The CDN URL for the build's static assets |
+| `CRAFT_CLOUD_ARTIFACT_BASE_URL` | The URL where the build artifact will live |
+| `GIT_SHA` | The commit being deployed |
+| `NODE_ENV` | Hard-coded to `production` during builds — affects which dependencies `npm install` resolves and how bundlers like Vite/Webpack optimize output |
+
+Use these in build scripts when you need them. Custom env vars from the Console UI are **not** available at build time.
+
+### Runtime variables
+
+Available at runtime (PHP request handling). Set in the Craft Console UI per environment.
+
+- **Standard env vars** — your `MY_API_KEY`, `STRIPE_SECRET`, etc.
+- **Write-only env vars** — set once, decrypted into a secrets file at runtime, not exposed in process env or logs. Use for highly sensitive values.
+- **Cloud-managed runtime vars** — DB credentials, asset-storage credentials, and similar secrets are auto-injected by the Cloud extension; you should not override them and you generally shouldn't read them directly (use Craft's standard APIs).
+
+Read them with `App::env('MY_VAR')` as you would on any Craft project. The `.env` file is not the source of truth on Cloud — the Console UI is.
+
+### Reserved runtime variables — do NOT set these in the Console
+
+Cloud injects (or derives) the following itself. Setting them in the Console is at best ignored and at worst conflicting — leave them out of any `.env` you migrate from a self-hosted setup. Verified against `craftcms/cloud` 2.x (`src/AppConfig.php`, `src/Config.php`, `src/Helper.php`):
+
+| Variable(s) | Why it's reserved |
+|---|---|
+| `CRAFT_SECURITY_KEY` | Cloud generates and injects the security key |
+| `CRAFT_APP_ID` | Derived from `CRAFT_CLOUD_PROJECT_ID` — `AppConfig::getId()` sets `id` to `CraftCMS--<projectId>` when it's missing or the default |
+| `CRAFT_OMIT_SCRIPT_NAME_IN_URLS` | Cloud's web layer controls URL rewriting / pretty URLs |
+| `CRAFT_CLOUD`, `CRAFT_CLOUD_*` | The platform flag + `PROJECT_ID`, `ENVIRONMENT_ID`, `REGION`, `REDIS_URL`, `ARTIFACT_BASE_URL`, `CDN_BASE_URL`, `SIGNING_KEY`, `DEV_MODE`, … |
+| `CRAFT_DB_*` | DB connection auto-wired (`SERVER`, `PORT`, `DATABASE`, `USER`, `PASSWORD`, `DRIVER`, `SCHEMA`, `TABLE_PREFIX`) |
+| `CRAFT_EDITION` | Set by Cloud |
+| `REDIS_*` | Cache, queue, session, and mutex are wired by the extension via `CRAFT_CLOUD_REDIS_URL` (`AppConfig::getCache()`/`getQueue()`/`getSession()`) — your own Redis vars are unused |
+| `CRAFT_WEB_ROOT` | Cloud-managed path. If `config/general.php` aliases `@webroot`/`@uploads` from this var, guard it so it only applies when the var is set, e.g. `App::env('CRAFT_WEB_ROOT') ? [...] : []` — otherwise `@webroot` is nulled on Cloud |
+| `CRAFT_RESOURCE_BASE_PATH`, `CRAFT_RESOURCE_BASE_URL` | cpresources are published to and served from the Cloud CDN |
+
+`Helper::isCraftCloud()` returns true when `CRAFT_CLOUD` (or `AWS_LAMBDA_RUNTIME_API`) is present — that's the flag the extension keys all of the above off. App-level settings you *do* choose (e.g. `CRAFT_ENVIRONMENT`, `CRAFT_CP_TRIGGER`, `CRAFT_DEV_MODE`, `CRAFT_ALLOW_ADMIN_CHANGES`) are normal runtime vars and safe to set.
+
+### When to use which
+
+- Build-time vars are mostly read-only and auto-set. The only reason to know them is if your build script needs to know the build ID, CDN URL, or commit SHA.
+- Runtime vars are where every app-level setting lives. Configure them in the Console UI, not by committing `.env` files.
+
+## Failed deploys
+
+When a phase fails:
+
+1. Cloud stops the pipeline.
+2. The previously-released version keeps serving traffic (no automatic rollback because nothing was rolled forward yet).
+3. The failed deploy is visible in the Console with the failing phase and any output.
+
+To recover:
+
+- Fix the underlying issue (build syntax error, failing migration, missing env var).
+- Push the fix (for On Push environments) or click Deploy (for Manual environments).
+
+There is no one-click rollback to a prior build in the documented surface. The supported recovery path is `git revert <bad-commit> && git push` — which triggers a new build with the prior state. See `migration.md` for the same pattern applied to bigger rollback scenarios.
+
+## What you can't do
+
+- **No build hooks.** No `pre-build` / `post-build` / `post-deploy` keys in `craft-cloud.yaml`.
+- **No build-time DB access.** Migration-style work (e.g. generating fixtures, syncing content) has to happen in the Migrate phase via `cloud/up`'s event hooks, or post-deploy via Console commands.
+- **No build caching across deploys** — not documented. `vendor/` and `node_modules` are rebuilt every deploy. If your builds are slow because of dependency installs, the lever is `composer install --prefer-dist` (default) and a slim `package.json`, not a cache layer you can configure.
+- **No skipping phases.** Every deploy runs all three; you can't push a "config only" deploy that skips the Build phase.
+
+Last verified against https://craftcms.com/docs/cloud/deployment, https://craftcms.com/docs/cloud/builds, and `craftcms/cloud-extension-yii2` on 2026-05-28. The internal `craft up` order and the cache-during-Migrate hazard were verified against `craftcms/cms` `5.x` `UpController` and `craftcms/cloud-extension-yii2` `3.x` `AppConfig.php` on 2026-06-18.

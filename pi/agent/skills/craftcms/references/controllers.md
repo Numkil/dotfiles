@@ -1,0 +1,621 @@
+# Controllers
+
+## Documentation
+
+- Controllers: https://craftcms.com/docs/5.x/extend/controllers.html
+- CP edit pages: https://craftcms.com/docs/5.x/extend/cp-edit-pages.html
+
+## Common Pitfalls
+
+- **Naming a route or query param `token`** — Craft reserves it globally (`GeneralConfig::$tokenParam`, default `'token'`) and 400s the request in `Application::init()` before your controller runs. See [Reserved request params](#reserved-request-params).
+- **`WrongEditionException` uncaught in `beforeAction()` is a 500** — it extends `yii\base\Exception` with no HTTP status. Catch it and rethrow `NotFoundHttpException`. See [Edition gating](#edition-gating).
+- **Uncaught project-config exceptions on concurrent writes** — a controller action that writes project config can throw `BusyResourceException` / `StaleResourceException` under concurrency. See [Project-config writes from controllers](#project-config-writes-from-controllers).
+- **Buffering an unbounded query into a PDF/export renderer** — see [Bounding synchronous exports](#bounding-synchronous-exports).
+- **Hardcoding `/admin/` in CP URLs** — `cpTrigger` is configurable. Use `UrlHelper::cpUrl()` in PHP, `cpUrl()` in Twig. See `config-general.md` (Routing & URLs section) for the full pattern.
+- Forgetting `$this->requirePostRequest()` on mutating actions — without it, state-changing actions are accessible via GET, which browsers prefetch and bots crawl.
+- Returning `null` from a save action without passing the entity back via `setRouteParams()` — the template re-renders but the entity (with its validation errors and filled-in values) is lost, showing a blank form.
+- Webhook controllers without `$enableCsrfValidation = false` — external services don't have a CSRF token, so every POST returns 400. Note: this property is **per-controller**, not per-action. Setting it to `false` disables CSRF for ALL actions on that controller. Always use a dedicated controller for webhook endpoints — never mix webhook actions with CP save actions on the same controller.
+- **`requireAdmin()` default arg is `true`** — `requireAdmin()` with no args bundles two checks: user is admin AND `allowAdminChanges` is true. On production where `allowAdminChanges` is false, this throws 403 even for view-only screens. Use `requireAdmin(false)` for view actions (admin check only). Place calls per-action, not in `beforeAction()`, when actions differ in read/write behavior.
+- Registering webhook routes in CP URL rules instead of site URL rules — CP rules require authentication, so external services get redirected to the login page.
+- **`beforeAction()` dispatch for `requireAdmin()` is brittle** — patterns like `in_array($action->id, ['index', 'edit'])` or `str_starts_with($action->id, 'save')` silently fail when a future action doesn't match the convention. Per-action calls are explicit and self-documenting. See `cp.md` Read-Only Mode for the full three-node access path.
+- Setting `$allowAnonymous = true` (blanket) on controllers that also have CP actions — exposes every action to unauthenticated users. Always list specific action names: `$allowAnonymous = ['receive', 'verify']`. Blanket `true` is only acceptable on a **dedicated** API controller where every action is intentionally public (see authorization table below).
+- Returning raw exception messages to anonymous users (`$e->getMessage()` in JSON responses) — leaks database details, file paths, and internal state. Return generic messages ("An error occurred") and log the real exception with `Craft::error()`.
+- **Over-engineering with CP URL rules when action URLs suffice** — If the endpoint is an API call, AJAX handler, or utility action, the default `actions/{pluginHandle}/{controller}/{action}` URL works out of the box with query params (`?itemId=123`). CP URL rules with `<itemId:\d+>` path params are only worth the complexity for pretty URLs in CP nav or browser-facing pages. Don't register routes for endpoints that will only be called from JavaScript or `UrlHelper::actionUrl()`.
+- **TOCTOU: checking permissions before model population** — if your save action checks a permission (`requirePermission`), then populates a model from POST data, verify that the POST data hasn't changed the permission-relevant context. For example: action checks `saveEntries:{sectionUid}`, then `$entry->sectionId = $this->request->getBodyParam('sectionId')` could change which section the entry belongs to — the original permission check no longer applies. Re-check permissions after populating the model when the POST data can change the authorization context. Safe pattern: check permission, populate model, re-check if the context changed. If the permission context is immutable during the action (e.g., you strip or ignore context-changing fields from POST), document why.
+- **Element/block ID manipulation in POST data** — if a save action or custom element action accepts element IDs, block IDs, or owner IDs from POST data, an attacker can substitute IDs they don't own. Always verify that the user has permission to the referenced element after loading it: `$element = Craft::$app->getElements()->getElementById($id)` then check `Craft::$app->getElements()->canSave($element, $currentUser)`. Never trust IDs from POST without authorization checks on the resolved element.
+- **Relying on `AppController::actionResourceJs()` (removed in 5.10)** — the cross-domain JS proxy at `actions/app/resource-js` no longer exists. Plugins that loaded JS through this proxy must register normal asset bundles instead. Direct script tags work cleanly across origins now.
+- **Failure redirect lands where no flash surface exists** — an anonymous (public) action that sets an error flash then redirects to a bare `UrlHelper::siteUrl()` or the site root will "lose" the flash: the message is set correctly but the target page never renders `flash`, so the user sees nothing and can't retry. Redirect failures to a page that actually renders the flash and lets the user act — for a login flow that's Craft's `loginPath`, not the homepage. See the front-end side in the `craft-site` skill's `auth-flows.md` (Failure Redirect Landings).
+- **Enumeration-safe redirect flow drops the visitor's typed input** — a flow that must return identical responses whether or not an account exists (to avoid account enumeration) and that redirects between form pages will force the visitor to re-type their email after the redirect unless you carry it forward. Stash their own typed input (e.g. their email) in the session and set it **unconditionally, before** any exists/not-exists branch — the unconditional set is what keeps the two branches indistinguishable. Setting it only in one branch reintroduces the enumeration signal. See the `craft-site` skill's `auth-flows.md` (Session-Carried Form State).
+
+## Controller Access Patterns
+
+Plugin controllers are accessible at `actions/{pluginHandle}/{controllerKebab}/{actionKebab}` by default — no route registration needed. The `actionTrigger` is `actions` by default (configurable in `config/general.php`). Craft resolves the plugin handle, controller class, and action method automatically from the URL segments.
+
+For example, `MyPlugin\controllers\ItemsController::actionEditItem()` with plugin handle `my-plugin` resolves to:
+
+```
+actions/my-plugin/items/edit-item
+```
+
+In PHP, generate these with `UrlHelper::actionUrl('my-plugin/items/edit-item', ['itemId' => 123])`.
+
+### When to register URL rules
+
+| Pattern | Register? | Why |
+|---------|-----------|-----|
+| AJAX/API endpoint called from JS | No — action URL with query params | `actions/my-plugin/items/edit-item?itemId=123` works immediately |
+| CP nav page with pretty URL | Yes — CP URL rule | Users see `{cpTrigger}/my-plugin/settings/items/42` in their browser |
+| Public webhook or redirect | Yes — site URL rule | External services hit `my-plugin/webhook/receive` on the site URL |
+| Form POST target | No — action URL via hidden input | `<input type="hidden" name="action" value="my-plugin/items/save-item">` |
+
+The rule of thumb: register a route only when the URL is visible to humans (browser address bar, CP nav) or must be on the site domain (webhooks). For everything else, action URLs just work.
+
+## Table of Contents
+
+- [Controller Access Patterns](#controller-access-patterns)
+- [Scaffold](#scaffold)
+- [Controller Types](#controller-types)
+- [CP Entity Controller Pattern](#cp-entity-controller-pattern)
+- [Webhook/API Controller Pattern](#webhookapi-controller-pattern)
+- [CP Screen Response](#cp-screen-response)
+- [Streaming and Download Responses](#streaming-and-download-responses) — asRaw, stream resource, callable closure, sendContentAsFile
+- [Action Routing](#action-routing)
+- [Reserved request params](#reserved-request-params)
+- [Response formats — `renderTemplate()` does not set `FORMAT_HTML`](#response-formats--rendertemplate-does-not-set-format_html)
+- [Edition gating](#edition-gating)
+- [Project-config writes from controllers](#project-config-writes-from-controllers)
+- [Bounding synchronous exports](#bounding-synchronous-exports)
+- [Authorization Summary](#authorization-summary)
+
+## Scaffold
+
+```bash
+ddev craft make controller --with-docblocks
+```
+
+## Controller Types
+
+1. **CP Entity Controllers** — CRUD for managed entities (instances, match fields, settings)
+2. **Webhook/API Controllers** — External service endpoints (anonymous, no CSRF, JSON responses)
+3. **Settings Controllers** — Plugin settings pages
+
+## CP Entity Controller Pattern
+
+### The `$variables` Pattern
+
+Build a `$variables` array with everything the template needs. Keys: `title`, `readOnly`, `docTitle` (browser tab), `crumbs` (breadcrumb trail), the entity, and any context data (claimed IDs, API responses, type options):
+
+```php
+class ItemsController extends Controller
+{
+    protected array|bool|int $allowAnonymous = false;
+
+    private bool $readOnly;
+
+    public function beforeAction($action): bool
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        $this->requireCpRequest();
+
+        $currentUser = Craft::$app->getUser()->getIdentity();
+        if (!$currentUser || !$currentUser->can('my-plugin:settings')) {
+            throw new ForbiddenHttpException('You do not have permission.');
+        }
+
+        // View actions: admin without allowAdminChanges check
+        $viewActions = ['index', 'edit-item'];
+        if (in_array($action->id, $viewActions)) {
+            $this->requireAdmin(false);
+        } else {
+            $this->requireAdmin();
+        }
+
+        $this->readOnly = !Craft::$app->getConfig()->getGeneral()->allowAdminChanges;
+
+        return true;
+    }
+
+    public function actionIndex(): Response
+    {
+        $pluginName = 'My Plugin';
+        $templateTitle = Craft::t('my-plugin', 'Items');
+
+        $variables = [];
+        $variables['title'] = $templateTitle;
+        $variables['readOnly'] = $this->readOnly;
+        $variables['docTitle'] = "{$pluginName} - {$templateTitle}";
+        $variables['crumbs'] = [
+            ['label' => $pluginName, 'url' => UrlHelper::cpUrl('my-plugin')],
+            ['label' => Craft::t('my-plugin', 'Settings'), 'url' => UrlHelper::cpUrl('my-plugin/settings')],
+        ];
+        $variables['items'] = MyPlugin::$plugin->getItems()->getAllItems();
+
+        return $this->renderTemplate('my-plugin/settings/items/_index', $variables);
+    }
+}
+```
+
+### Edit Action with Entity Resolution
+
+The edit action handles three states: new entity, existing entity from DB, or re-render after validation failure (entity passed as parameter):
+
+```php
+public function actionEditItem(?int $itemId = null, ?MyEntity $item = null): Response
+{
+    if ($itemId === null && $this->readOnly) {
+        throw new ForbiddenHttpException('Administrative changes are disallowed.');
+    }
+
+    $itemsService = MyPlugin::$plugin->getItems();
+    $pluginName = 'My Plugin';
+
+    $variables = [
+        'itemId' => $itemId,
+        'brandNewItem' => false,
+    ];
+
+    if ($itemId !== null) {
+        if ($item === null) {
+            $item = $itemsService->getItemById($itemId);
+            if (!$item) {
+                throw new NotFoundHttpException('Item not found');
+            }
+        }
+
+        $variables['title'] = trim($item->name) ?: Craft::t('my-plugin', 'Edit Item');
+    } else {
+        if ($item === null) {
+            $item = new MyEntity();
+            $variables['brandNewItem'] = true;
+        }
+
+        $variables['title'] = Craft::t('my-plugin', 'Create a new item');
+    }
+
+    $variables['readOnly'] = $this->readOnly;
+    $variables['docTitle'] = "{$pluginName} - {$variables['title']}";
+    $variables['crumbs'] = [
+        ['label' => $pluginName, 'url' => UrlHelper::cpUrl('my-plugin')],
+        ['label' => Craft::t('my-plugin', 'Settings'), 'url' => UrlHelper::cpUrl('my-plugin/settings')],
+        ['label' => Craft::t('my-plugin', 'Items'), 'url' => UrlHelper::cpUrl('my-plugin/settings/items')],
+    ];
+    $variables['item'] = $item;
+    $variables['claimedSiteIds'] = $itemsService->getSiteIdsClaimedByOtherItems($item->id);
+
+    return $this->renderTemplate('my-plugin/settings/items/_edit', $variables);
+}
+```
+
+### Save Action with Validation Failure Handling
+
+When save fails, pass the entity back via `setRouteParams()` so validation errors display and form values are preserved:
+
+```php
+public function actionSaveItem(): ?Response
+{
+    $this->requirePostRequest();
+
+    $itemsService = MyPlugin::$plugin->getItems();
+    $itemId = $this->request->getBodyParam('itemId');
+
+    if ($itemId) {
+        $item = $itemsService->getItemById((int)$itemId);
+        if (!$item) {
+            throw new BadRequestHttpException("Invalid item ID: $itemId");
+        }
+    } else {
+        $item = new MyEntity();
+    }
+
+    $item->name = $this->request->getBodyParam('name');
+    $item->handle = $this->request->getBodyParam('handle');
+    $item->enabled = (bool)$this->request->getBodyParam('enabled', $item->enabled);
+
+    if (!$itemsService->saveItem($item)) {
+        $this->setFailFlash(Craft::t('my-plugin', 'Couldn\'t save item.'));
+
+        Craft::$app->getUrlManager()->setRouteParams([
+            'item' => $item,
+        ]);
+
+        return null;
+    }
+
+    $this->setSuccessFlash(Craft::t('my-plugin', 'Item saved.'));
+    return $this->redirectToPostedUrl($item);
+}
+```
+
+### Delete and Reorder (JSON Endpoints)
+
+```php
+public function actionDeleteItem(): Response
+{
+    $this->requirePostRequest();
+    $this->requireAcceptsJson();
+
+    $itemId = $this->request->getRequiredBodyParam('id');
+    $item = MyPlugin::$plugin->getItems()->getItemById((int)$itemId);
+
+    if (!$item) {
+        throw new BadRequestHttpException("Invalid item ID: $itemId");
+    }
+
+    MyPlugin::$plugin->getItems()->deleteItem($item);
+
+    return $this->asSuccess();
+}
+
+public function actionReorderItems(): Response
+{
+    $this->requirePostRequest();
+    $this->requireAcceptsJson();
+
+    $ids = $this->request->getRequiredBodyParam('ids');
+    $itemsService = MyPlugin::$plugin->getItems();
+
+    foreach ($ids as $sortOrder => $id) {
+        $item = $itemsService->getItemById((int)$id);
+        if ($item) {
+            $item->sortOrder = $sortOrder;
+            $itemsService->saveItem($item, false);
+        }
+    }
+
+    return $this->asSuccess(Craft::t('my-plugin', 'Items reordered.'));
+}
+```
+
+## Webhook/API Controller Pattern
+
+For receiving external service calls — anonymous access, no CSRF, JSON responses:
+
+```php
+class WebhookController extends Controller
+{
+    protected array|bool|int $allowAnonymous = ['receive', 'verify'];
+
+    public $enableCsrfValidation = false;
+
+    public function actionVerify(): Response
+    {
+        return $this->asRaw('echo');
+    }
+
+    public function actionReceive(): Response
+    {
+        $request = Craft::$app->getRequest();
+
+        if ($request->getIsGet()) {
+            return $this->asRaw('echo');
+        }
+
+        $this->requirePostRequest();
+        $startTime = microtime(true);
+
+        try {
+            $payload = $webhooksService->validateRequest($request, $secret);
+            $webhooksService->routeWebhook($payload, $instanceId);
+
+            return $this->asJson([
+                'success' => true,
+                'message' => 'Webhook processed',
+            ]);
+
+        } catch (BadRequestHttpException $e) {
+            Craft::warning("Webhook validation failed: {$e->getMessage()}", __METHOD__);
+
+            return $this->asJson([
+                'success' => false,
+                'message' => 'Invalid request',
+            ])->setStatusCode(400);
+
+        } catch (Throwable $e) {
+            Craft::error("Webhook processing failed: {$e->getMessage()}", __METHOD__);
+
+            return $this->asJson([
+                'success' => false,
+                'message' => 'An error occurred',
+            ])->setStatusCode(500);
+        }
+    }
+}
+```
+
+### Key Webhook Patterns
+
+- `$allowAnonymous` lists specific action names — not `true` for the whole controller
+- `$enableCsrfValidation = false` — external services can't send CSRF tokens
+- `$this->asJson()` for JSON responses, chain `->setStatusCode(400)` for errors
+- `$this->asRaw()` for plain text responses (verification probes)
+- Validate webhook signatures via a dedicated service method
+- Track processing time for observability
+
+## CP Screen Response
+
+For element edit screens, use `CpScreenResponseBehavior`:
+
+```php
+/** @var Response|CpScreenResponseBehavior $response */
+$response = $this->asCpScreen()
+    ->title($element->title)
+    ->editUrl($element->getCpEditUrl())
+    ->action('my-plugin/elements/save');
+
+return $response;
+```
+
+## Streaming and Download Responses
+
+Three forms for sending data from a controller, in order of preference:
+
+**1. Full payload in memory** — use `asRaw()` + headers when the content fits in memory:
+
+```php
+public function actionExportCsv(): Response
+{
+    $csv = $this->_buildCsv();
+    $response = Craft::$app->getResponse();
+    $response->getHeaders()
+        ->set('Content-Type', 'text/csv; charset=UTF-8')
+        ->set('Content-Disposition', 'attachment; filename="export.csv"');
+    return $this->asRaw($csv);
+}
+```
+
+**2. Stream resource** — use `$response->stream` with a file handle when the source is a file or `php://temp`:
+
+```php
+$response->stream = fopen($tempPath, 'rb');
+```
+
+Yii reads with `feof()`/`fread()` until EOF.
+
+**3. Callable closure for lazy generation** — use when the dataset doesn't fit in memory. The closure must **return** the data chunk and finished flag, not echo:
+
+```php
+$offset = 0;
+$response->stream = function () use (&$offset, $query): array {
+    $batch = $query->offset($offset)->limit(1000)->all();
+    $offset += 1000;
+    $data = $this->_formatBatch($batch);
+    $finished = count($batch) < 1000;
+    return [$data, $finished];
+};
+```
+
+Yii's send loop calls the closure repeatedly: `list($data, $finished) = call_user_func($this->stream); echo $data;` — it echoes the **returned** `$data` until `$finished` is true.
+
+**Anti-pattern:** closures that echo data inside and return a sentinel like `[true, true]`. Yii still echoes the return value, casting boolean `true` to `"1"` and corrupting the response.
+
+For Craft controllers, also consider `$response->sendContentAsFile($content, $filename, ['mimeType' => $type])` — handles headers and framing in one call. Reach for streaming only when the payload size warrants it.
+
+## Action Routing
+
+### CP Routes
+
+```php
+Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_CP_URL_RULES,
+    function(RegisterUrlRulesEvent $event) {
+        $event->rules['my-plugin/settings'] = 'my-plugin/settings/index';
+        $event->rules['my-plugin/settings/items/new'] = 'my-plugin/items/edit-item';
+        $event->rules['my-plugin/settings/items/<itemId:\d+>'] = 'my-plugin/items/edit-item';
+    }
+);
+```
+
+### Site Routes (Webhooks, API)
+
+For webhook and API endpoints, register in **site** URL rules — not CP rules:
+
+```php
+Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_SITE_URL_RULES,
+    function(RegisterUrlRulesEvent $event) {
+        $event->rules['my-plugin/webhook/receive'] = 'my-plugin/webhook/receive';
+        $event->rules['my-plugin/webhook/verify'] = 'my-plugin/webhook/verify';
+    }
+);
+```
+
+## Reserved request params
+
+**Never name a route segment, query param, or body param `token`.** Craft claims it globally: `GeneralConfig::$tokenParam` defaults to `'token'`, and `craft\web\Request::getToken()` reads `getQueryParam($this->generalConfig->tokenParam)` (falling back to the `X-Craft-Token` header). If that value doesn't resolve to a valid token row, `Application::init()` throws before routing:
+
+```php
+// craft\web\Application::init() — runs before your controller exists
+if ($this->getRequest()->getHasInvalidToken()) {
+    throw new BadRequestHttpException('Invalid token');
+}
+```
+
+So a plugin that mints its own `?token=…` verification links gets a blanket **400 "Invalid token"** on every request. The failure is total (the flow simply never works) and invisible to service-layer tests, because nothing below the HTTP layer consults `tokenParam`. Only a real request reveals it.
+
+Use a name of your own: `?verify=`, `?vt=`, `?inviteCode=`. If you're consuming someone else's fixed `token` param and can't rename it, the escape hatch is renaming *Craft's* (`->tokenParam('craftToken')` in `config/general.php`) — but that changes preview and share URLs system-wide, so prefer renaming yours.
+
+Treat this as one instance of a general rule: **reserved param names are a runtime contract only an HTTP test can check.** Give every plugin-owned param a route test that asserts a real request returns what you expect. See the `craft-pest` skill's `patterns.md` (HTTP testing).
+
+## Response formats — `renderTemplate()` does not set `FORMAT_HTML`
+
+`Controller::renderTemplate()` sets a Craft-specific response format, not Yii's HTML format:
+
+```php
+$this->response->formatters[TemplateResponseFormatter::FORMAT] = TemplateResponseFormatter::class;
+$this->response->format = TemplateResponseFormatter::FORMAT;   // === 'template'
+```
+
+`TemplateResponseFormatter::FORMAT` is the string `'template'`. `Response::FORMAT_HTML` is `'html'`. They are different values, and normal CP/site page renders carry the **former**.
+
+This bites response-injection listeners — anything appending a banner, notice, or script to outgoing pages on `EVENT_AFTER_REQUEST` (or similar) by gating on the format:
+
+```php
+// WRONG — fires only on Craft's error pages
+if ($response->format === Response::FORMAT_HTML) {
+    $response->content .= $bannerHtml;
+}
+```
+
+The reason it appears to "work sometimes" is the error path: Craft's error-page bail-out resets the format to `FORMAT_HTML`, so the listener fires on 404s and exceptions and nowhere else. Debugging that from the symptom is miserable.
+
+Accept both formats, and explicitly leave everything else alone:
+
+```php
+use craft\web\TemplateResponseFormatter;
+use yii\web\Response;
+
+$format = $response->format;
+
+// Rendered pages arrive as 'template'; error pages as 'html'. Anything else
+// (JSON, raw, streams, file downloads) must not be touched — injecting into
+// a JSON body or a stream corrupts the response.
+if (!in_array($format, [TemplateResponseFormatter::FORMAT, Response::FORMAT_HTML], true)) {
+    return;
+}
+
+if ($request->getAcceptsJson() || $request->getIsAjax() || $response->stream !== null) {
+    return;
+}
+
+$response->content .= $bannerHtml;
+```
+
+## Edition gating
+
+`craft\errors\WrongEditionException` extends `yii\base\Exception` and carries **no HTTP status code**. Thrown from `requireEdition()` inside `beforeAction()` and left uncaught, it surfaces as a **500** — an error page where you meant an access decision.
+
+Catch it and rethrow as a 404. Returning "not found" rather than "wrong edition" also avoids advertising the existence of higher-edition surfaces:
+
+```php
+use craft\errors\WrongEditionException;
+use yii\web\NotFoundHttpException;
+
+public function beforeAction($action): bool
+{
+    if (!parent::beforeAction($action)) {
+        return false;
+    }
+
+    try {
+        MyPlugin::getInstance()->requireEdition(MyPlugin::EDITION_PRO);
+    } catch (WrongEditionException) {
+        // Hide the surface rather than advertising it — and don't 500.
+        throw new NotFoundHttpException();
+    }
+
+    return true;
+}
+```
+
+**Audit every controller individually.** Sibling controllers drift: a plugin adds the gate to three controllers and misses the fourth, and the ungated one becomes a working entry point on the wrong edition. Grep for your `requireEdition()` call and compare against the list of controllers, rather than assuming a shared base class covers it — and remember that gates in `beforeAction()` do nothing for templates reachable through CP template routing (see `cp.md`).
+
+## Project-config writes from controllers
+
+Project config is guarded by a mutex. `ProjectConfig::_acquireLock()` throws `BusyResourceException` when it can't acquire `MUTEX_NAME` (`'project-config'`), and `StaleResourceException` when the loaded config is out of date. Both are plain exceptions — uncaught in a controller action they're 500s.
+
+Under concurrency that isn't theoretical: 18 parallel delete requests against a project-config-writing action produced 14 uncaught 500s. Any action that writes project config (saving plugin settings, creating or deleting a plugin-managed entity whose config lives in YAML) needs to handle it:
+
+```php
+use craft\errors\BusyResourceException;
+use craft\errors\StaleResourceException;
+
+public function actionDelete(): Response
+{
+    $this->requirePostRequest();
+
+    try {
+        MyPlugin::getInstance()->getItems()->deleteItem($item);
+    } catch (BusyResourceException|StaleResourceException $e) {
+        Craft::warning("Project config busy: {$e->getMessage()}", __METHOD__);
+
+        // 409: the client can retry. Never let this reach the user as a 500.
+        return $this->asFailure(
+            Craft::t('my-plugin', 'The configuration is being updated. Please try again.'),
+        )->setStatusCode(409);
+    }
+
+    return $this->asSuccess();
+}
+```
+
+For internal AJAX callers, a bounded retry with a short backoff before surfacing the conflict is friendlier. Don't retry indefinitely — the mutex is signalling real contention.
+
+## Bounding synchronous exports
+
+Never buffer an unbounded query result into an in-memory renderer. A 4,136-row export rendered through dompdf consumed over 2.4 GB and 500'd — and the number of rows was user-controlled, so the limit was whatever the data happened to be.
+
+Three fixes, in order of preference:
+
+1. **Stream it.** For CSV and other row-oriented formats, use the callable-closure `$response->stream` form above — memory stays flat regardless of row count.
+2. **Hard-cap the synchronous path.** Count first; above a threshold, refuse and route through the queue:
+
+```php
+$count = $query->count();
+
+if ($count > self::MAX_SYNC_EXPORT_ROWS) {
+    Craft::$app->getQueue()->push(new GenerateExport([
+        'criteria' => $criteria,
+        'userId' => Craft::$app->getUser()->getId(),
+    ]));
+
+    return $this->asSuccess(
+        Craft::t('my-plugin', 'Your export is being generated. You will be notified when it is ready.'),
+    );
+}
+```
+
+3. **Chunk the renderer.** If the format genuinely needs a document model (PDF), build it in batches (`->offset()/->limit()`) and release each batch, rather than materializing every row first.
+
+The cap belongs on the **row count**, not on a memory limit — raising `memory_limit` moves the cliff without removing it, and the failure mode (a 500 mid-download) is the same.
+
+## Authorization Summary
+
+```php
+$this->requireAdmin(false);                             // Admin, no allowAdminChanges check (view)
+$this->requireAdmin();                                  // Admin + allowAdminChanges (mutate)
+$this->requirePermission('my-plugin:settings');         // Custom permission (see permissions.md)
+$this->requirePostRequest();                            // POST only
+$this->requireAcceptsJson();                            // JSON endpoints
+$this->requireCpRequest();                              // CP only
+```
+
+### Use-Case Mapping
+
+| Endpoint type | Auth approach |
+|---------------|---------------|
+| Plugin settings page (view) | `requireCpRequest()` + `requireAdmin(false)` in `beforeAction()` for view actions — admins can view even with `allowAdminChanges` off |
+| Plugin settings page (save) | `requireCpRequest()` + `requireAdmin()` — blocks when `allowAdminChanges` is `false` |
+| CP feature gated by permission | `requireCpRequest()` + `requirePermission('my-plugin:manage-items')` — works for non-admin users with the permission |
+| AJAX endpoint for CP UI | `requireCpRequest()` + `requireAcceptsJson()` + `requirePostRequest()` |
+| Public webhook from external service | `$allowAnonymous = ['receive']` + `$enableCsrfValidation = false` — no auth, no CSRF |
+| Preview/share URL for logged-in users | `requireLogin()` — any authenticated user, not just admins |
+| Public API endpoint (headless) | `$allowAnonymous = true` on a **dedicated** API controller (no CP actions on the same controller) — validate via API key/signature in each action |
+
+## Sec-Fetch-Site Filter (5.10+)
+
+`craft\filters\SecFetchSiteFilter` is a Yii `ActionFilter` that verifies the `Sec-Fetch-Site` header on non-safe HTTP methods. Browsers set this header automatically and it can't be forged from cross-origin contexts, which makes it a stronger origin guarantee than CSRF tokens for internal AJAX endpoints.
+
+Attach via `behaviors()` on any controller:
+
+```php
+use craft\filters\SecFetchSiteFilter;
+
+public function behaviors(): array
+{
+    return array_merge(parent::behaviors(), [
+        'secFetchSite' => [
+            'class' => SecFetchSiteFilter::class,
+            'only' => ['save', 'delete'],   // scope to mutating actions
+            // 'allowSameSite' => true,     // opt-in for subdomain requests
+        ],
+    ]);
+}
+```
+
+Defaults:
+- `$originOnly = true` — rejects any request that isn't `Sec-Fetch-Site: same-origin` with a 400.
+- `$allowSameSite = false` — same-domain only by default; flip to `true` if your app spans subdomains.
+- `$safeMethods` — uses the request's `csrfTokenSafeMethods` (GET/HEAD/OPTIONS skip the check automatically).
+
+This **supplements** CSRF, it doesn't replace it. The two protect against different attack shapes — keep CSRF active. Don't attach this filter to webhook controllers (external services don't send `Sec-Fetch-Site`) or to public API endpoints called by non-browser clients.
