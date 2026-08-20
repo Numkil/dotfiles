@@ -7,6 +7,7 @@ This directory contains your PI coding agent configuration, including extensions
 ```
 pi/
 ├── extensions/          # Custom TypeScript extensions
+│   ├── caveman-auto-activate.ts # Auto-activates caveman mode for token optimization
 │   ├── capability-reminder.ts    # Shows contextual reminders for available tools
 │   ├── command-permissions.ts   # Blocks dangerous bash commands
 │   ├── craft-skills-auto-load.ts # Auto-loads Craft CMS skills
@@ -58,12 +59,11 @@ The following npm packages are configured in `settings.json` and will be automat
 | `pi-web-access` | Web search, URL fetching, GitHub cloning, PDF extraction |
 | `pi-vision-handoff` | Vision capabilities for image understanding |
 | `pi-agent-browser-native` | Browser automation as a native tool |
-| `JuliusBrussee/caveman` | Token optimization - makes responses shorter and reduces API costs |
 
-### Caveman Skill Usage
-The caveman skill reduces token usage by making responses more concise. To use it:
+### Caveman Extension
+The caveman-auto-activate extension automatically enables caveman mode on session start for token optimization, making responses shorter and reducing API costs. The Caveman skill is installed separately via `npx skills add JuliusBrussee/caveman` (handled by the install script).
 
-**Activate caveman mode:**
+**Caveman commands:**
 ```
 /caveman          # Toggle on/off
 /caveman lite     # Light compression (~25% reduction)
@@ -71,12 +71,12 @@ The caveman skill reduces token usage by making responses more concise. To use i
 /caveman ultra    # Maximum compression (~65% reduction)
 ```
 
-**For always-on caveman with Mistral:**
-Once installed, the skill auto-activates. Use `/caveman ultra` to enable maximum compression for all Mistral output.
-
-**Note:** Caveman only compresses output tokens, not input. It's particularly effective for reducing Mistral API costs.
+**Note:** Caveman only compresses output tokens, not input. It's particularly effective for reducing Mistral API costs. The extension auto-activates caveman mode when a session starts.
 
 ## 🔧 Extensions
+
+### caveman-auto-activate.ts
+Automatically activates caveman mode at the start of each session for token optimization. Caveman reduces API costs by making responses more concise.
 
 ### capability-reminder.ts
 Shows contextual reminders based on your intent. For example:

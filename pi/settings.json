@@ -25,7 +25,6 @@
     "npm:pi-hermes-memory",
     "npm:@narumitw/pi-lsp",
     "npm:pi-subagents",
-    "npm:@narumitw/pi-goal",
-    "npm:JuliusBrussee/caveman"
+    "npm:@narumitw/pi-goal"
   ]
 }
