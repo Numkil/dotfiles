@@ -1,189 +1,283 @@
 ---
 name: ddev
-description: Manage DDEV local development environments. Use when the user asks to start, stop, configure, debug, or interact with a DDEV project, run commands inside containers, query or manipulate databases, manage snapshots, run Composer/npm/yarn, view logs, or perform any DDEV-related task.
+description: "DDEV local development environment for Craft CMS projects. ALWAYS load for ddev commands, .ddev/config.yaml, or container troubleshooting. Covers config.yaml (project type, PHP/Node, database, docroot), shorthand commands, Mailpit, custom commands, Vite dev server, DB import/export, Xdebug, site sharing, troubleshooting (port conflicts, container restarts, ddev-injected env vars overriding .env/config/general.php). Triggers on: ddev start/stop/restart, ddev craft, ddev composer, ddev npm, ddev ssh, ddev import-db/export-db, ddev craft db/backup, ddev xdebug, ddev share, ddev add-on, .ddev/config.yaml, .ddev/commands/, web_extra_exposed_ports, PHP/Node versions, port conflicts, DB backup/restore, npm/composer on host, node_modules architecture, ddev-injected PRIMARY_SITE_URL, CRAFT_ env vars, ddev exec --dir, ddev craft pest. NOT for production deployment, CI/CD, or Docker outside DDEV."
 ---
 
-# DDEV Skill
+# DDEV for Craft CMS Development
 
-DDEV is a Docker-based local development tool. All commands below must be run from the project root directory (where `.ddev/config.yaml` lives).
+## Companion Skills — Always Load Together
 
-## Project Info
+When this skill triggers, also load:
 
-| Command | Description |
-|---------|-------------|
-| `ddev status` | Show project status, URLs, ports, database credentials |
-| `ddev describe` | Detailed project description (alias: `ddev st`, `ddev desc`) |
-| `ddev list` | List all DDEV projects |
-| `ddev config` | View or modify `.ddev/config.yaml` interactively |
+- **`craftcms`** — Plugin/module development. Required when DDEV commands involve Craft CLI (`ddev craft make`, `ddev craft migrate`, `ddev craft project-config`).
+- **`craft-php-guidelines`** — PHP coding standards. Required when DDEV commands involve code quality tooling (`ddev composer check-cs`, `ddev composer phpstan`, `ddev craft pest/test`).
 
-The `.ddev/config.yaml` file contains the project configuration (type, PHP version, database type/version, docroot, hostnames, etc.). Read it directly for quick reference.
+## Documentation
 
-## Lifecycle
+- DDEV docs: https://docs.ddev.com/en/stable/
+- Craft CMS quickstart: https://docs.ddev.com/en/stable/users/quickstart/#craft-cms
+- Configuration reference: https://docs.ddev.com/en/stable/users/configuration/config/
+- Custom commands: https://docs.ddev.com/en/stable/users/extend/custom-commands/
+- Additional services: https://docs.ddev.com/en/stable/users/extend/additional-services/
+- Vite integration: https://docs.ddev.com/en/stable/users/usage/developer-tools/#nodejs
 
-| Command | Description |
-|---------|-------------|
-| `ddev start` | Start the project containers |
-| `ddev stop` | Stop containers (data is preserved) |
-| `ddev restart` | Restart the project |
-| `ddev poweroff` | Stop ALL DDEV projects and containers |
-| `ddev delete` | Remove project info and database (destructive!) |
+When unsure about a DDEV feature, `WebFetch` the relevant docs page.
 
-## Executing Commands in Containers
+## Common Pitfalls
 
-```bash
-ddev exec <command>                    # Run command in web container
-ddev exec -s db <command>              # Run command in db container
-ddev exec -s <service> <command>       # Run command in any service container
-ddev ssh                               # Open shell in web container
-ddev ssh -s db                         # Open shell in db container
-```
+- Using `ddev exec composer install` instead of `ddev composer install` — DDEV shorthand commands handle path resolution and environment setup. Always use the shorthand.
+- Forgetting `ddev craft up` does both `migrate/all` and `project-config/apply` — no need to run them separately after pulls or deploys.
+- Exposing the Vite dev server with `ports` instead of `web_extra_exposed_ports` — `ports` causes conflicts when running multiple DDEV projects. `web_extra_exposed_ports` routes through Traefik and works with HTTPS.
+- Running `ddev composer global require` — global packages install inside the container and vanish on restart. Install project-level dependencies only.
+- Setting `nodejs_version` but running `npm install` on the host — Node must run inside the container via `ddev npm` to match the configured version.
+- Editing `.ddev/config.yaml` while containers are running without restarting — changes to config require `ddev restart` to take effect.
+- Using `ddev import-db` without `--target-db=db` on multi-database setups — the default target is `db`, but if you've configured additional databases, be explicit.
+- Adding `#ddev-generated` to custom commands you've customized — DDEV overwrites files with this comment during updates. Only use it for add-on-managed commands. Custom commands you maintain should omit it.
+- Running `composer install` on the host then `ddev composer check-cs`/`ddev composer phpstan` — if the host PHP version differs from DDEV's (e.g., host PHP 8.4, DDEV PHP 8.3), `vendor/composer/platform_check.php` fails. Always run `ddev composer install` so `vendor/` matches the container's PHP version.
 
-**Shorthand:** `ddev . <command>` is an alias for `ddev exec`.
+## Craft CLI First, Raw SQL Last
 
-## Database Access
-
-### Quick Queries with ddev mysql
-
-Run MySQL/MariaDB queries directly:
+Always prefer Craft CLI commands over raw database queries:
 
 ```bash
-ddev mysql -e "SHOW DATABASES;"
-ddev mysql -e "SHOW TABLES;"
-ddev mysql -e "DESCRIBE <table_name>;"
-ddev mysql -e "SELECT * FROM <table> LIMIT 10;"
-ddev mysql -e "SELECT COUNT(*) FROM <table>;"
+ddev craft users/list-admins         # not: ddev mysql -e "SELECT * FROM users WHERE admin=1"
+ddev craft project-config/get system # not: reading project.yaml manually
+ddev craft resave/entries            # not: UPDATE queries on content tables
+ddev craft elements/delete           # not: DELETE FROM elements
 ```
 
-The default database is `db` with user `db`/password `db` (or `root`/`root`).
+Only fall back to `ddev mysql` when no CLI equivalent exists (e.g., checking table schemas, debugging specific rows, `TRUNCATE cache` for stuck mutex locks). Craft CLI commands handle project config, search index updates, and event firing that raw SQL skips.
 
-### Connection Details
+## Shorthand Commands
 
-From `ddev status` output, the db service shows:
-- **Inside containers:** host=`db`, port=`3306`, user=`db`, password=`db`, database=`db`
-- **From host:** host=`127.0.0.1`, port=shown in `ddev status` output (dynamic), user=`db`, password=`db`
-
-### Database Export
+Always use DDEV shorthand over `ddev exec`:
 
 ```bash
-ddev export-db --file=/tmp/db.sql.gz           # Export as gzipped SQL
-ddev export-db --gzip=false --file=/tmp/db.sql  # Export as plain SQL
-ddev export-db --gzip=false > /tmp/db.sql       # Export to stdout
-ddev export-db --database=other_db --file=dump.sql.gz  # Export specific database
+ddev composer install          # not ddev exec composer install
+ddev craft up                  # not ddev exec php craft up
+ddev npm install               # not ddev exec npm install
+ddev craft make service        # scaffolding
 ```
 
-### Database Import
+## Craft CMS Project Type
+
+```yaml
+# .ddev/config.yaml
+name: my-craft-site
+type: craftcms
+docroot: web
+php_version: "8.3"
+database:
+  type: mysql
+  version: "8.0"
+nodejs_version: "20"
+```
+
+DDEV auto-injects: `CRAFT_DB_SERVER`, `CRAFT_DB_USER`, `CRAFT_DB_PASSWORD`, `CRAFT_DB_DATABASE`, `PRIMARY_SITE_URL`. These are injected into the container via `.ddev/.env.web` and can be opted out of with `disable_settings_management: true` in `.ddev/config.yaml`.
+
+## New Project Bootstrap
+
+The canonical flow for a fresh DDEV + Craft project:
 
 ```bash
-ddev import-db --file=dump.sql                  # Import SQL file
-ddev import-db --file=dump.sql.gz               # Import gzipped SQL
-ddev import-db --file=dump.tar.gz               # Import tar archive
-ddev import-db --database=other_db --file=dump.sql  # Import into specific database
-ddev import-db < dump.sql                       # Import from stdin
-ddev import-db --no-drop --file=dump.sql        # Import without dropping existing db
+mkdir my-craft-site && cd my-craft-site
+ddev config --project-type=craftcms --docroot=web   # writes .ddev/config.yaml
+ddev start
+ddev composer create-project craftcms/craft         # Craft's setup wizard runs automatically
 ```
 
-Supported formats: `.sql`, `.sql.gz`, `.sql.bz2`, `.sql.xz`, `.mysql`, `.mysql.gz`, `.zip`, `.tgz`, `.tar.gz`
+`ddev composer create-project` launches Craft's interactive install wizard on completion. If it doesn't run (or you need to re-run it), use `ddev craft install`. Swap `craftcms/craft` for a community starter project to bootstrap from one instead.
 
-### Database Snapshots
-
-Snapshots are instant backups using mariabackup/xtrabackup:
+## Common Commands
 
 ```bash
-ddev snapshot                                   # Create snapshot
-ddev snapshot --name my-snapshot                 # Create named snapshot
-ddev snapshot --list                             # List all snapshots
-ddev snapshot restore                            # Restore most recent snapshot
-ddev snapshot restore --latest                   # Restore most recent snapshot
-ddev snapshot restore my-snapshot                # Restore specific snapshot
-ddev snapshot --cleanup                          # Remove all snapshots
+ddev start                     # Start the project
+ddev stop                      # Stop the project
+ddev restart                   # Restart containers
+ddev ssh                       # SSH into web container
+ddev describe                  # Show project info and URLs
+ddev launch                    # Open the project in a browser
+ddev launch -m                 # Open Mailpit (also --mailpit)
+ddev logs                      # View container logs
+ddev import-db --file=dump.sql # Import database
+ddev export-db --file=dump.sql # Export database
+ddev xdebug on                 # Enable Xdebug
+ddev craft db/backup           # Craft database backup
 ```
 
-**Best practice:** Always create a snapshot before importing a database or making destructive changes.
+## Post-Install Auto-Run
 
-## Package Managers & Build Tools
+Composer scripts auto-run `craft up` after install/update:
+
+```json
+{
+    "scripts": {
+        "post-craft-update": [
+            "@php craft install/check && php craft up --interactive=0 || exit 0"
+        ],
+        "post-update-cmd": "@post-craft-update",
+        "post-install-cmd": "@post-craft-update"
+    }
+}
+```
+
+No need to manually run `ddev craft migrate/all` or `ddev craft project-config/apply` — `ddev craft up` does both, and it auto-runs after `ddev composer install/update`.
+
+## Add-ons
 
 ```bash
-ddev composer <command>        # Run Composer (e.g. ddev composer install, ddev composer require)
-ddev npm <command>             # Run npm
-ddev npx <command>             # Run npx
-ddev yarn <command>            # Run yarn
-ddev php <command>             # Run PHP CLI
+ddev add-on get ddev/ddev-redis       # Install Redis
+ddev add-on list                       # List installed add-ons
+ddev add-on remove ddev/ddev-redis    # Remove add-on
 ```
 
-## CMS-Specific Commands
+Mailpit is built into DDEV core — no add-on installation needed. Outgoing mail is captured automatically. Access the web UI with `ddev mailpit`, or `ddev describe` shows its URL (e.g. `https://{project}.ddev.site:8026`).
 
-For Craft CMS projects (type: `craftcms`):
+## Sharing a Local Site
 
 ```bash
-ddev craft <command>           # Run Craft CLI commands (e.g. ddev craft project-config/apply)
+ddev share                     # Expose the project on a temporary public URL
 ```
 
-For other CMS types, DDEV provides similar wrappers (e.g. `ddev drush` for Drupal, `ddev wp` for WordPress).
+`ddev share` defaults to the ngrok provider, which requires a free ngrok.com account and a configured ngrok auth token. (`cloudflared` is an alternative provider via `--provider=cloudflared`, no account required, but ngrok is the default.)
 
-## Logs
+## Custom Commands
+
+Place scripts in `.ddev/commands/web/` (container) or `.ddev/commands/host/` (host):
 
 ```bash
-ddev logs                      # Web server logs
-ddev logs -s db                # Database logs
-ddev logs -f                   # Follow logs in real time
-ddev logs --tail 50            # Show last 50 lines
+#!/usr/bin/env bash
+## Description: Run ECS code style check
+## Usage: check-cs
+## Example: ddev check-cs
+
+cd /var/www/html && composer check-cs
 ```
 
-## Xdebug
+Note: omit `#ddev-generated` on custom commands you maintain — DDEV overwrites files with that comment during updates. Only add-on-managed commands should include it.
+
+## Composer Path Repos and Volume Mounts
+
+When developing plugins locally, Composer path repos symlink the plugin into `vendor/`. For this to work inside DDEV's Docker container, the host path must be volume-mounted so the symlink resolves.
+
+### Setup
+
+1. **composer.json** — use the local host path:
+
+```json
+{
+    "repositories": [
+        {
+            "type": "path",
+            "url": "/Users/Shared/dev/craft-plugins/v5/*"
+        }
+    ]
+}
+```
+
+2. **docker-compose override** — mount the same path into the container. Create `.ddev/docker-compose.mounts.yaml`:
+
+```yaml
+services:
+  web:
+    volumes:
+      - /Users/Shared/dev/craft-plugins:/Users/Shared/dev/craft-plugins
+```
+
+The mount path inside the container must match the host path exactly — Composer creates absolute symlinks that must resolve in both contexts. Replace `/Users/Shared/dev/craft-plugins` with your actual plugin directory path.
+
+3. **Require the plugin**: `ddev composer require vendor/plugin-handle:@dev`
+
+### Common mistakes
+
+- Using a Docker-internal path in `composer.json` `url` — the path must be the host filesystem path, not `/var/www/...`
+- Forgetting the volume mount — `ddev composer install` succeeds but the symlink points nowhere inside the container
+- Setting `"platform": {"php": "8.3"}` in `composer.json` `config` — don't. DDEV handles the PHP version via `.ddev/config.yaml`. Platform overrides cause dependency resolution mismatches between host and container, and prevent DDEV from managing version upgrades cleanly.
+
+## Browser Debugging with Chrome DevTools MCP
+
+The Chrome DevTools MCP server gives Claude Code direct browser access — inspect pages, read console logs, check network requests, capture screenshots, and interact with the DOM.
+
+### Installation
 
 ```bash
-ddev xdebug                   # Enable Xdebug
-ddev xdebug off                # Disable Xdebug
+claude mcp add chrome-devtools -- npx chrome-devtools-mcp@latest
 ```
 
-## Sharing & URLs
+Quit and reopen Claude Code to load the new MCP server. Requires Chrome or Chromium running — the MCP server handles the DevTools Protocol connection automatically.
+
+### What it enables
+
+| Capability | Use Case |
+|-----------|----------|
+| **Page inspection** | Check rendered HTML, verify template output, inspect meta tags |
+| **Console logs** | Catch Twig errors, JS exceptions, Garnish initialization failures |
+| **Network requests** | Debug 404 assets, failed AJAX calls, Sprig/htmx swaps |
+| **DOM queries** | Verify form markup, check field rendering, validate ARIA attributes |
+| **Screenshots** | Visual verification of CP templates, responsive testing |
+| **Navigation & login** | Authenticate into the CP, navigate to plugin settings/edit pages |
+
+### When to use
+
+- **Front-end template debugging** — 404s, missing assets, broken layouts, SEOmatic meta tag verification
+- **CP template verification** — plugin settings pages render correctly, editable tables work, slideout editors load
+- **Garnish/JS debugging** — modals, drag-sort, disclosure menus initialize without console errors
+- **Sprig/htmx debugging** — watch network requests for htmx swaps, verify response HTML fragments
+- **Auth flow testing** — walk through login, registration, password reset end-to-end
+- **Read-only mode verification** — confirm settings pages display correctly with `allowAdminChanges` off
+- **Visual regression** — screenshot before/after template changes
+
+### CP authentication pattern
+
+DDEV sites are accessible at `https://{project}.ddev.site`. To inspect CP pages:
+
+1. Navigate to `https://{project}.ddev.site/{cpTrigger}`
+2. Log in with admin credentials
+3. Navigate to the plugin/settings page to inspect
+4. Check console for JS errors, inspect DOM for correct markup
+
+### Project setup
+
+The `craft-project-setup` skill offers to install Chrome DevTools MCP during scaffolding. If installed later, run `claude mcp add chrome-devtools -- npx chrome-devtools-mcp@latest` from the project root — this writes to the project's `.claude.json`, keeping it project-level.
+
+## Running a Plugin's Own Test Suite
+
+When a plugin is symlinked into a host project, run its suite **from the plugin's own directory** inside the container:
 
 ```bash
-ddev launch                    # Open project in browser
-ddev share                     # Share via ngrok/cloudflared tunnel
-ddev mailpit                   # Open Mailpit email testing UI
+ddev exec --dir /var/www/html/vendor/acme/my-plugin vendor/bin/pest
+ddev exec --dir /var/www/html/vendor/acme/my-plugin composer test
 ```
 
-## File Import
+`--dir` sets the working directory, and that is the load-bearing part. `markhuot/craft-pest-core` reads its environment overrides from `getcwd().'/phpunit.xml(.dist)'` only — it does **not** parse a `--configuration=` flag. So the shared-root form:
 
 ```bash
-ddev import-files --source=/path/to/files  # Import uploaded files into the project
+# UNSAFE — runs the tests, but against the project's live database
+ddev craft pest -- --configuration=vendor/acme/my-plugin/phpunit.xml.dist
 ```
 
-## Tips
+…discovers and executes the plugin's tests while silently ignoring the plugin's own `CRAFT_DB_DATABASE` pin. Combined with a suite that hasn't bound the `RefreshesDatabase` trait (rollback is opt-in), that writes test data permanently into your development database. Treat the shared-root invocation as unsafe for any craft-pest-core suite.
 
-- **Database type:** Check `.ddev/config.yaml` for `database.type` (mysql, mariadb, postgres) and `database.version` to know which SQL dialect to use.
-- **PostgreSQL projects:** Use `ddev psql` instead of `ddev mysql`.
-- **Multiple databases:** Use `--database=<name>` flag with import-db/export-db.
-- **Custom services:** Check `.ddev/docker-compose.*.yaml` for additional services (Redis, Solr, Elasticsearch, etc.).
-- **Environment variables:** Set in `web_environment` in `.ddev/config.yaml` or in `.ddev/.env`.
-- **Custom commands:** Check `.ddev/commands/` for project-specific custom commands.
-- **Add-ons:** Use `ddev add-on list` to see installed add-ons and `ddev add-on get` to install new ones.
+The full mechanism, the isolation checklist, and the CI equivalent are in the `craft-pest` skill (`references/isolation.md`).
 
-## Common Workflows
+For plugins mounted via a Composer path repo, the `--dir` path is the symlink target inside the container — see [Composer Path Repos and Volume Mounts](#composer-path-repos-and-volume-mounts) for making that path resolve.
 
-### Inspect Database Schema
+## Troubleshooting
+
 ```bash
-ddev mysql -e "SHOW TABLES;"
-ddev mysql -e "DESCRIBE <table>;"
-ddev mysql -e "SHOW CREATE TABLE <table>;"
+ddev poweroff                  # Stop all DDEV projects
+ddev debug router              # Debug router configuration
+ddev debug capabilities        # Check Docker capabilities
+ddev delete --omit-snapshot    # Remove project without snapshot
 ```
 
-### Search Database Content
-```bash
-ddev mysql -e "SELECT * FROM <table> WHERE <column> LIKE '%search%' LIMIT 20;"
-```
+### A general-config edit isn't taking effect (ddev-injected env var wins)
 
-### Backup Before Risky Operations
-```bash
-ddev snapshot --name before-migration
-# ... do risky thing ...
-ddev snapshot restore before-migration   # if something goes wrong
-```
+DDEV auto-injects Craft env vars (including `PRIMARY_SITE_URL`, and `CRAFT_DB_*`) into the container via `.ddev/.env.web`, and **regenerates that file on every `ddev start`/restart** unless `disable_settings_management: true` is set in `.ddev/config.yaml`. Because a real container environment variable beats a `cms/.env` dotenv value, and `CRAFT_*` env vars beat `config/general.php` (see the `craftcms` skill's `config-bootstrap.md`), a value you edit in `.env` or `general.php` can be silently overridden by what ddev injected.
 
-### Check Project Health
-```bash
-ddev status
-ddev logs --tail 20
-ddev mysql -e "SELECT 1;"   # verify db connection
-```
+Two symptoms and fixes:
+
+- **Wrong site URL / scheme.** `PRIMARY_SITE_URL` follows ddev's primary URL, whose scheme is often `http`; if Craft resolves an unexpected base URL, that injected var is the likely source. Point Craft's site URL at a **differently-named** env var (e.g. `SITE_URL`) in your site config so ddev's `PRIMARY_SITE_URL` doesn't shadow it, or override `PRIMARY_SITE_URL` deliberately.
+- **A `.env` change reverts after restart.** If you edited `.ddev/.env.web` by hand, it's regenerated on restart — put durable overrides in `.ddev/config.yaml` (`web_environment`) or set `disable_settings_management: true` to own the file yourself.
+
+When a config value "won't change," check the resolved environment (`ddev exec printenv | grep CRAFT_`, and `.ddev/.env.web`) before editing PHP again.

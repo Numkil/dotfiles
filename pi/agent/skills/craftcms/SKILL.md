@@ -1,6 +1,6 @@
 ---
 name: craftcms
-description: "Craft CMS 5 plugin and module development — extending Craft with PHP. Covers elements, element queries, services, models, records, controllers, migrations, queue jobs, console commands, field types, native fields, events, behaviors, Twig extensions, widgets, filesystems, permissions, project config, GraphQL, testing, and debugging. Triggers on: beforePrepare()/afterSave()/defineSources()/defineTableAttributes()/attributeHtml(), MemoizableArray, BaseNativeField, EVENT_REGISTER_*/DEFINE_*/BEFORE_*/AFTER_*, CraftVariable, custom element or field type (normalizeValue/serializeValue/inputHtml), webhook, API endpoint, queue/batch job, CP section, dashboard widget, utility page, element action/exporter/condition, registerUserPermissions, requirePermission vs requireAdmin, kebab-case permission handles, allowAdminChanges, canView/canSave/canDelete, defineRules, elevated session, project-config/apply, drafts/revisions, element edit sidebar (EVENT_DEFINE_SIDEBAR_HTML) + toolbar buttons, metaFieldsHtml, VueAdminTabl..."
+description: "Craft CMS 5 plugin and module development — extending Craft with PHP. Covers elements, element queries, services, models, records, controllers, migrations, queue jobs, console commands, field types, native fields, events, behaviors, Twig extensions, widgets, filesystems, permissions, project config, GraphQL, testing, debugging. Triggers on: beforePrepare()/afterSave()/defineSources()/defineTableAttributes()/attributeHtml(), MemoizableArray, BaseNativeField, EVENT_*/DEFINE_*/BEFORE_*/AFTER_*, CraftVariable, custom elements/fields, webhooks, API endpoints, queue/batch jobs, CP sections, widgets, permissions, requirePermission vs requireAdmin, kebab-case handles, allowAdminChanges, defineRules, elevated sessions, project-config/apply, drafts/revisions, sidebar/toolbar, VueAdminTable, GeneralConfig, site management, element query issues. Always use for Craft plugin/module PHP. For plugin-specific work also load craft-plugins. NOT for front-end Twig (craft-site) or content modeling (craft-content-modeling)."
 ---
 
 # Craft CMS 5 — Extending (Plugins & Modules)
@@ -101,6 +101,10 @@ Read the relevant reference file(s) for your task. Multiple files often apply to
 - "Set up CI for a Craft plugin" → read `quality.md` (CI/CD Integration section)
 - "Create sections or fields in a migration" → read `migrations.md` (Content Migrations section)
 - "Install fails with 'Too many keys specified; max 64 keys allowed' / duplicate indexes piling up" → read `migrations.md` (Re-runnable index creation and MySQL's 64-key ceiling)
+- "Run a module's migrations / --track=module: rejected / library-shipped module schema never applies" → read `migrations.md` (Modules and library-shipped modules have no CLI track)
+- "Fix a bad stored project-config value from a plugin upgrade" → read `migrations.md` (Never call ProjectConfig::flush() inside a migration)
+- "Unsuspend/restore a user programmatically / user still locked out after unsuspend" → read `elements.md` (getStatus() hides co-existing states)
+- "Do I need to override settingsAttributes()?" → read `field-types-custom.md` (What settingsAttributes() actually includes)
 - "Set up database read replicas" → read `config-app.md` (Database Replicas section)
 - "Register a module in app.php" → read `config-app.md` (Module Registration section)
 - "Create a custom validator" → read `architecture.md` (Custom Validators section)
@@ -166,6 +170,8 @@ Read the relevant reference file(s) for your task. Multiple files often apply to
 - "Deploy a Craft project to Cloud" → load `craft-cloud` skill → `config-file.md` + `deploy-pipeline.md` + `extension.md`
 - "Migrate a self-hosted Craft site to Cloud" → load `craft-cloud` skill → `migration.md`
 - "Why does my plugin's file write silently fail on Cloud?" → load `craft-cloud` skill → `plugin-development.md` (Ephemeral filesystem) + `extension.md` (App::isEphemeral)
+- "Build an SSO/OIDC login or SCIM provisioning feature" → read `identity-protocols.md` + `sessions-and-auth.md`
+- "Handle single logout / logout_token / provider-initiated deprovisioning" → read `identity-protocols.md`
 
 Load only the reference files your task needs — each file costs input tokens on every turn.
 
@@ -197,6 +203,7 @@ Load only the reference files your task needs — each file costs input tokens o
 | Permissions: built-in handles, user groups, custom registration, Twig/PHP checking, authorization events | `references/permissions.md` | 4.7K |
 | Element authorization: four-layer defense model, authorization events, can*() methods, query scoping | `references/element-authorization.md` | 4.6K |
 | Sessions & auth internals: dual-layer session model, auth tokens, session invalidation, elevated sessions | `references/sessions-and-auth.md` | 3.0K |
+| Identity protocols for SSO/provisioning plugins: back-channel vs front-channel logout, signing-alg allowlists, issuer vs tenancy (hd claim), SCIM active:false + PATCH ordering, vendor-vs-RFC deviations | `references/identity-protocols.md` | 1.3K |
 | Custom field types: build pattern, value lifecycle, settings, input HTML, validation, search, GraphQL | `references/field-types-custom.md` | 3.5K |
 | Conditions framework: BaseCondition, ElementCondition, custom condition rules, registering rules | `references/conditions.md` | 2.3K |
 | Email system: system messages, custom messages, programmatic sending, templates, events, testing | `references/email.md` | 2.4K |

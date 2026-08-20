@@ -1,6 +1,6 @@
 ---
 name: craft-pest
-description: "Testing Craft CMS 5 plugins and modules with Pest — test isolation, database safety, and the markhuot/craft-pest-core harness. ALWAYS load when writing, running, fixing, or reviewing tests for a Craft plugin or module, and whenever a suite touches a real Craft install. Covers why rollback is opt-in, tests/Pest.php + tests/bootstrap.php wiring, phpunit.xml.dist <env> pins (force DB name + table prefix, default connection coordinates for CI), why --configuration= defeats DB isolation, installing the plugin under test, process-timezone pinning, per-test site fixtures, idempotent Install migrations, stale service caches when components get swapped, muting audit sinks, queue stubs, factories, HTTP/DB assertions, CI test jobs. Triggers on: Pest, pestphp, craft-pest-core, markhuot, RefreshesDatabase, InstallsCraft, tests/Pest.php, phpunit.xml.dist, vendor/bin/pest, composer test, ddev craft pest, db_test, CRAFT_DB_DATABASE, CRAFT_DB_TABLE_PREFIX, Entry::factory(), assertDatabaseHas, afterEach, transaction rollba..."
+description: "Testing Craft CMS 5 plugins/modules with Pest and markhuot/craft-pest-core. ALWAYS load for plugin/module tests touching real Craft installs. Covers test isolation, DB safety, rollback opt-in, tests/Pest.php + tests/bootstrap.php wiring, phpunit.xml.dist env pins, DB isolation, fail-closed guards, plugin install, timezone pinning, site fixtures, Install migrations, stale caches, audit sinks, queue stubs, factories, HTTP/DB assertions, CI jobs. Triggers on: Pest, craft-pest-core, RefreshesDatabase, InstallsCraft, tests/Pest.php, phpunit.xml.dist, vendor/bin/pest, ddev craft pest, db_test, CRAFT_DB_DATABASE, CRAFT_ENVIRONMENT, Entry::factory(), assertDatabaseHas, transaction rollback, test fixtures, 'pollute database', 'passes on dev fails in isolation', deadlocks, datetime issues. NOT for front-end/JS testing or PHP style analysis."
 ---
 
 # Testing Craft CMS Plugins with Pest
@@ -9,7 +9,7 @@ Reference for testing Craft CMS 5 plugins and modules with Pest, primarily via `
 
 The dominant failure mode in Craft plugin testing is not a wrong assertion — it's a suite that **writes to a database it shouldn't**, or that **passes only because of ambient state** on the developer's install. Both are silent. Both look like a green suite. This skill leads with isolation for that reason: get the harness right first, then write tests.
 
-**Verified against `markhuot/craft-pest-core` 3.2.2 and `craftcms/cms` 5.10.11 (July 2026).** Where a claim names a class or method, it was read in that package's source. craft-pest's own README and docs are not authoritative on these points — several of the behaviors below are unstated there.
+**Verified against `markhuot/craft-pest-core` 3.2.2 and `craftcms/cms` 5.10.12 (August 2026).** Where a claim names a class or method, it was read in that package's source. craft-pest's own README and docs are not authoritative on these points — several of the behaviors below are unstated there.
 
 ## Companion Skills — Load When Needed
 
@@ -86,6 +86,8 @@ Run this against any plugin suite you inherit, write, or review. Each line has f
 |-------|-------|--------------------|
 | `RefreshesDatabase` bound alongside `TestCase` | `tests/Pest.php` | Every write commits permanently |
 | `CRAFT_DB_DATABASE` pinned before Craft boots | `tests/bootstrap.php` | Suite runs against the dev database |
+| Fail-closed DB guard that **throws** (never `exit(1)`) | `tests/bootstrap.php` | `exit(1)` hands the shell 0 under Pest — guard fails open on CI |
+| `CRAFT_ENVIRONMENT` pinned uniquely per plugin | `phpunit.xml.dist` | Suites share server-scoped `GET_LOCK` names — `BusyResourceException`/deadlocks even across separate databases |
 | `date_default_timezone_set('UTC')` **after** app creation | `tests/bootstrap.php` | Datetimes shift by the install's UTC offset |
 | Same pins present as `<env>` entries | `phpunit.xml.dist` | Correct-invocation path has no pins |
 | DB name + table prefix forced; coordinates `default="true"` | `phpunit.xml.dist` | A forced local hostname breaks CI runners |
@@ -121,9 +123,12 @@ Read the reference file(s) your task needs — each costs input tokens on every 
 - "My fixture-cleanup sweep isn't deleting anything / fixtures leak into a shared install" → `craft-state.md` (Prefix-matching sweeps)
 - "Test passes alone but fails in the suite / service returns stale data" → `craft-state.md` (Service caches go stale when craft-pest swaps components)
 - "Wire tests into CI" → `ci.md`
-- "Make the bootstrap refuse to run against the wrong database" → `isolation.md` (fail-closed guard)
+- "Make the bootstrap refuse to run against the wrong database" → `isolation.md` (fail-closed guard — throw, never `exit(1)`)
+- "Two suites deadlock when run in parallel / `BusyResourceException` on a fresh empty database" → `isolation.md` (pin `CRAFT_ENVIRONMENT`)
+- "Does this suite even run in CI?" → `ci.md` (sweep all workflows, not just `tests.yaml`)
 - "`--filter` run fails on cookieValidationKey but the full suite passes" → `isolation.md` (--filter subsets)
 - "Refactor a large untested controller/service" → `patterns.md` (Pin behaviour before refactoring)
+- "The fix requires changing an existing test / is my new test actually testing anything?" → `patterns.md` (A test can encode the bug; Prove a fix by breaking it)
 - "`TestCaseAlreadyInUse` from my uses() rules / per-directory TestCases" → `patterns.md` (uses() rules)
 - "CP controller test fails on sites, URLs, or asset directories" → `craft-state.md` (CP-surface controller tests)
 
