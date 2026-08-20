@@ -58,6 +58,23 @@ The following npm packages are configured in `settings.json` and will be automat
 | `pi-web-access` | Web search, URL fetching, GitHub cloning, PDF extraction |
 | `pi-vision-handoff` | Vision capabilities for image understanding |
 | `pi-agent-browser-native` | Browser automation as a native tool |
+| `JuliusBrussee/caveman` | Token optimization - makes responses shorter and reduces API costs |
+
+### Caveman Skill Usage
+The caveman skill reduces token usage by making responses more concise. To use it:
+
+**Activate caveman mode:**
+```
+/caveman          # Toggle on/off
+/caveman lite     # Light compression (~25% reduction)
+/caveman full     # Medium compression (~50% reduction)
+/caveman ultra    # Maximum compression (~65% reduction)
+```
+
+**For always-on caveman with Mistral:**
+Once installed, the skill auto-activates. Use `/caveman ultra` to enable maximum compression for all Mistral output.
+
+**Note:** Caveman only compresses output tokens, not input. It's particularly effective for reducing Mistral API costs.
 
 ## 🔧 Extensions
 

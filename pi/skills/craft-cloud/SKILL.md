@@ -1,6 +1,6 @@
----
+--- 
 name: craft-cloud
-description: "Craft Cloud — Pixel & Tonic's serverless hosting platform for Craft CMS. Covers craft-cloud.yaml configuration, the Build → Migrate → Release deploy pipeline, the craftcms/cloud extension package, edge image transforms via Cloudflare, edge static caching with cache.rules + ESI, Cloud-managed S3 filesystem, MySQL 8 / Postgres 15 databases (no MariaDB, no tablePrefix), Console-based command runner and scheduled cron (once-per-hour minimum), auto-handled queue jobs, custom domains and SSL, preview environments per branch, Cloud limitations (ephemeral filesystem, no SSH, no .htaccess, no built-in mail), plugin development requirements for Cloud compatibility, and self-hosted → Cloud migration. Triggers on: craft-cloud.yaml, craftcms/cloud package, cloud.esi(), php craft cloud/up, php craft cloud/setup, App::isEphemeral(), CRAFT_EPHEMERAL, edge.craft.cloud, preview.craft.cloud, CRAFT_CLOUD_PROJECT_ID, CRAFT_CLOUD_ENVIRONMENT_ID, CRAFT_CLOUD_CDN_BASE_URL, Build → Migrate → Release, Cloud filesystem, Cloud-compatible plugin, Cloudflare Images at edge, AssetsFs, static-caching rules, ESI islands, deploy to Craft Cloud, migrate to Craft Cloud, self-hosted to Cloud, Craft Cloud quotas, Craft Cloud regions. Do NOT trigger for Servd (use the servd skill) or generic Craft deployment on Forge/bare metal (craftcms/deployment.md). Do NOT trigger for general DDEV local dev unrelated to Cloud parity."
+description: "Craft Cloud hosting for Craft CMS. Covers deploy pipeline, edge caching, ephemeral filesystem, and Cloud-compatible plugins. Triggers on craft-cloud.yaml or cloud-related commands. Do NOT trigger for Servd or DDEV."
 ---
 
 # Craft Cloud — Serverless Hosting for Craft CMS

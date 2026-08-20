@@ -130,6 +130,51 @@ install_packages() {
 }
 
 # ============================================================================
+# Install Caveman Skill
+# ============================================================================
+install_caveman() {
+    info "Installing Caveman skill for token optimization..."
+    
+    # Install caveman via skills CLI (non-interactive with --yes flag)
+    if command -v npx &> /dev/null; then
+        if npx skills add JuliusBrussee/caveman --yes --agent pi --skill caveman 2>/dev/null; then
+            success "Caveman skill installed"
+            
+            # Get the path to the caveman skill
+            local caveman_path=$(npx skills path JuliusBrussee/caveman 2>/dev/null)
+            
+            # Create a SessionStart hook to auto-activate caveman mode
+            local hooks_dir="${HOME}/.pi/agent/hooks"
+            mkdir -p "$hooks_dir"
+            local hook_file="${hooks_dir}/caveman-auto-activate.js"
+            
+            cat > "$hook_file" << 'EOF'
+module.exports = async (agent, options) => {
+  // Activate caveman mode at session start
+  await agent.sendMessage("/caveman");
+};
+EOF
+            success "Caveman auto-activation hook installed"
+            
+            if [ -n "$caveman_path" ]; then
+                # Load the skill in Pi
+                if pi --skill "$caveman_path" --help &> /dev/null; then
+                    success "Caveman skill loaded in Pi"
+                else
+                    warning "Caveman skill installed but may need manual activation with /caveman"
+                fi
+            else
+                warning "Could not determine caveman skill path"
+            fi
+        else
+            error "Failed to install Caveman skill"
+        fi
+    else
+        error "npx not found, cannot install Caveman skill"
+    fi
+}
+
+# ============================================================================
 # Install Context Files
 # ============================================================================
 install_context_files() {
@@ -227,6 +272,10 @@ main() {
     
     # Step 3: Install npm packages
     install_packages
+    echo ""
+    
+    # Step 3b: Install Caveman skill
+    install_caveman
     echo ""
     
     # Step 4: Install skills
