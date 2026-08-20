@@ -137,7 +137,7 @@ install_caveman() {
     
     # Install caveman via skills CLI (non-interactive with --yes flag)
     if command -v npx &> /dev/null; then
-        if npx skills add JuliusBrussee/caveman --yes --agent pi --skill caveman 2>/dev/null; then
+        if npx skills add JuliusBrussee/caveman --yes --global --agent pi --skill caveman 2>/dev/null; then
             success "Caveman skill installed"
             
             # Get the path to the caveman skill
