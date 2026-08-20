@@ -1,0 +1,1320 @@
+# Control Panel — Templates, Navigation, Settings
+
+CP templates, form macros, navigation, settings pages, permissions, and read-only mode. For controller patterns (CRUD, webhooks, API, routing), see `controllers.md`. For standalone components (widgets, utilities, slideouts, ajax), see `cp-components.md`. For visual patterns (tri-state controls, CSS variables, condition builders, asset bundles), see `cp-ui-patterns.md`. For building an element index (sources, columns, actions, sort options — `defineSources()`, `defineTableAttributes()`, `defineDefaultTableAttributes()`, `attributeHtml()`, `defineActions()`, `defineSortOptions()`), see `element-index.md`.
+
+## Documentation
+
+- CP templates: https://craftcms.com/docs/5.x/extend/cp-templates.html
+- CP sections: https://craftcms.com/docs/5.x/extend/cp-section.html
+- CP edit pages: https://craftcms.com/docs/5.x/extend/cp-edit-pages.html
+- Permissions: https://craftcms.com/docs/5.x/extend/user-permissions.html
+- Utilities: https://craftcms.com/docs/5.x/extend/utilities.html
+- Widget types: https://craftcms.com/docs/5.x/extend/widget-types.html
+
+## Common Pitfalls
+
+- Not wrapping settings UI in `allowAdminChanges` checks — settings should be read-only in production.
+- Hardcoding plugin name strings instead of using `Craft::t()` with the plugin handle translation category.
+- Missing `actionInput()` and `redirectInput()` in full-page forms — form submission won't route correctly.
+- Not passing `errors: entity.getErrors('field')` to form macros — validation errors won't display.
+- Registering CP nav items without checking user permissions first — users see nav items they can't access, leading to 403 errors.
+- Using raw HTML in CP templates instead of Craft's form macros — loses consistency, dark mode support, and accessibility features.
+- Not handling the `readonly` state for fields when `allowAdminChanges` is false — users can edit values they can't save.
+- Forgetting `csrfInput()` in custom forms that don't use `fullPageForm` — POST requests will be rejected.
+- Using `size` attribute with `type: 'number'` on `textField` — browsers ignore the HTML `size` attribute on `<input type="number">`. Craft's own Number field works around this by using `type: 'text'` with `inputmode: 'numeric'`. For number inputs, constrain width with `inputAttributes: { style: 'width: 6rem' }` or switch to a text input with `inputmode="numeric"` pattern.
+- Expensive `badgeCount` computation in `getCpNavItem()` — this method runs on **every CP page load** across the entire install, not just your plugin's pages. Badge counts must be extremely cheap: use a cached value (invalidated on relevant saves) or a simple indexed `COUNT(*)` query. Never run complex queries, N+1 patterns, or element queries with eager loading here.
+- Gating subnav entries on `allowAdminChanges` in `getCpNavItem()` — hides the settings link on production, making the page unreachable from the CP nav even though it should be viewable in read-only mode. Gate on permission (`can()`), not on admin changes. See Read-Only Mode section for the full three-node access path.
+- Leaving a plugin CP template without an underscore prefix when it isn't meant to be a direct route — Craft's CP template-routing fallback makes it reachable by URL, skipping your controller's `beforeAction()` gates entirely. See [CP template routing bypasses controllers](#cp-template-routing-bypasses-controllers).
+- Giving a plugin element one of Craft's reserved CP DOM IDs (`#notifications`, `#content`, `#tabs`, `#sidebar`, etc.) — Craft's CP JS caches chrome refs via `$('#foo')` during init and returns the first match in DOM order, so a plugin element with the same ID silently hijacks notification toasts, ARIA masking, or layout wiring. Pick feature-specific names (e.g. `notificationSettings`, not `notifications`) for tab keys, pane containers, slideout/HUD roots — anything you give an `id`. See [Reserved DOM IDs](#reserved-dom-ids) for the full list.
+
+## Contents
+
+- [CP Templates](#cp-templates) — form macros, editable tables, tabbed settings, reserved DOM IDs, template routing fallback, VueAdminTable
+- [CP Navigation](#cp-navigation)
+- [Settings Pages](#settings-pages) — settings model, env var support, config-file override warnings (configWarning pattern), keeping settings inside the plugin's CP section, split settings pages (savePluginSettings footgun)
+- [Form Macros Reference](#form-macros-reference) — lightswitch vs checkbox, copytext, money, buttons + modifier classes, inner sidebar nav (`_includes/nav.twig`)
+- [Permissions](#permissions)
+- [Read-Only Mode (allowAdminChanges)](#read-only-mode-allowadminchanges) — controller setup, template patterns, disabled fields
+
+**Moved to separate files:**
+- Widgets, utilities, slideouts, ajax, alerts → `cp-components.md`
+- UI patterns, condition builders, asset bundles, markup patterns → `cp-ui-patterns.md`
+
+## CP Templates
+
+### Form Macros
+
+```twig
+{% import '_includes/forms.twig' as forms %}
+
+{{ forms.textField({
+    label: 'Name'|t('my-plugin'), id: 'name', name: 'name',
+    value: item.name, errors: item.getErrors('name'), required: true, first: true,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Enable Sync'|t('my-plugin'), id: 'enableSync', name: 'enableSync',
+    on: settings.enableSync,
+}) }}
+
+{{ forms.selectField({
+    label: 'Batch Size'|t('my-plugin'), id: 'batchSize', name: 'batchSize',
+    value: item.batchSize, options: batchSizeOptions,
+}) }}
+```
+
+### Editable Table
+
+Two variants: `editableTableField` (with label, instructions, error wrapper) and `editableTable` (raw table only, for embedding in custom layouts).
+
+#### Basic usage
+
+```twig
+{{ forms.editableTableField({
+    label: 'Site Mappings'|t('my-plugin'),
+    instructions: 'Map each site to a URI format.'|t('my-plugin'),
+    id: 'sites',
+    name: 'sites',
+    cols: {
+        siteId: { type: 'select', heading: 'Site'|t('my-plugin'), options: siteOptions },
+        uriFormat: { type: 'singleline', heading: 'URI Format'|t('my-plugin'), placeholder: 'items/{slug}' },
+        enabled: { type: 'lightswitch', heading: 'Enabled'|t('my-plugin') },
+    },
+    rows: siteRows,
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    errors: settings.getErrors('sites'),
+}) }}
+```
+
+#### Column types
+
+| Type | Renders | Value in POST data |
+|------|---------|-------------------|
+| `singleline` | Text input | `string` |
+| `multiline` | Textarea (auto-grows) | `string` |
+| `number` | Number input | `string` (cast server-side) |
+| `checkbox` | Centered checkbox | `'1'` or absent |
+| `lightswitch` | Craft lightswitch toggle | `'1'` or `''` |
+| `select` | Dropdown (requires `options`) | Selected value `string` |
+| `date` | Date picker | `string` (Y-m-d format) |
+| `time` | Time picker | `string` (H:i format) |
+| `color` | Color picker | `string` (hex) |
+| `heading` | Non-editable display text | Not submitted |
+| `html` | Raw HTML (non-editable) | Not submitted |
+| `template` | Render a Twig template per cell | Depends on template |
+
+Column config keys: `type` (required), `heading`, `placeholder`, `class`, `width` (CSS width like `'30%'`), `thin` (boolean, minimal width), `options` (for `select`), `info` (tooltip text).
+
+#### Raw table (no field wrapper)
+
+```twig
+{{ forms.editableTable({
+    id: 'mappings',
+    name: 'mappings',
+    cols: cols,
+    rows: rows,
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    defaultValues: { enabled: true, batchSize: '50' },
+    minRows: 1,
+    maxRows: 10,
+    staticRows: false,
+}) }}
+```
+
+Additional settings: `minRows`, `maxRows` (enforce row count limits), `defaultValues` (hash of column handle → default value for new rows), `staticRows` (when `true`, rows can't be added/deleted — useful for fixed configurations like site mappings where you show one row per site).
+
+#### Server-side handling
+
+POST data arrives as a nested array keyed by row ID:
+
+```php
+// In controller action
+$rows = $this->request->getBodyParam('sites');
+// $rows = [
+//     'row1' => ['siteId' => '1', 'uriFormat' => 'items/{slug}', 'enabled' => '1'],
+//     'row2' => ['siteId' => '2', 'uriFormat' => 'articles/{slug}', 'enabled' => ''],
+// ]
+
+// Normalize — strip row IDs, cast types
+$normalized = [];
+foreach ($rows as $row) {
+    $normalized[] = [
+        'siteId' => (int)$row['siteId'],
+        'uriFormat' => $row['uriFormat'] ?? '',
+        'enabled' => (bool)($row['enabled'] ?? false),
+    ];
+}
+```
+
+Row IDs are auto-generated (e.g., `row1`, `new2`). Never rely on them — iterate the array values. New rows added by the user have IDs prefixed with `new`. When repopulating on validation failure, pass the raw `$rows` back as `rows` so the user's edits aren't lost.
+
+#### Populating rows from a model
+
+```php
+// In controller, before rendering
+$siteRows = [];
+foreach ($settings->siteMappings as $mapping) {
+    $siteRows[] = [
+        'siteId' => $mapping['siteId'],
+        'uriFormat' => $mapping['uriFormat'],
+        'enabled' => $mapping['enabled'],
+    ];
+}
+
+// Pass to template
+return $this->renderTemplate('my-plugin/settings', [
+    'siteRows' => $siteRows,
+    'siteOptions' => $this->_getSiteOptions(),
+]);
+```
+
+#### JS interaction (Garnish)
+
+> For Garnish library primitives (`Garnish.Modal`/`HUD`/`DragSort`, `UiLayerManager`, focus/ARIA helpers, the `Garnish.Base.extend` class system), see the `craft-garnish` skill. This file covers Craft's higher-level `Craft.*` CP APIs built on top.
+
+The table auto-initializes as a `Craft.EditableTable` instance. Access it for programmatic manipulation:
+
+```javascript
+// Get the instance (auto-attached to the container)
+var table = $('#sites').data('editable-table');
+
+// Add a row programmatically
+table.addRow(false); // false = don't focus the new row
+
+// Listen for row changes
+$('#sites').on('addRow', function(ev) {
+    // A row was added
+});
+$('#sites').on('deleteRow', function(ev) {
+    // A row was deleted
+});
+```
+
+### CP Layout
+
+```twig
+{% extends '_layouts/cp.twig' %}
+{% set title = 'Settings'|t('my-plugin') %}
+{% set selectedSubnavItem = 'settings' %}
+{% set fullPageForm = true %}
+
+{% block content %}
+    {{ actionInput('my-plugin/settings/save') }}
+    {{ redirectInput('my-plugin/settings') }}
+    {# Form fields here #}
+{% endblock %}
+```
+
+#### Layout regions for an edit screen
+
+`{% block content %}` fills only the main pane. A hand-built edit screen also wants a metadata sidebar and a collapsible details panel. `_layouts/cp.twig` reads each region as either a `{% block %}` or a same-named `{% set %}` var (verified against `vendor/craftcms/cms/src/templates/_layouts/cp.twig` — see the `{% set sidebar = (sidebar ?? block('sidebar') ?? '')|trim %}` lines). The var form wins when both are present, and is handier when the region is built with `{% set ... %}{% endset %}` capture:
+
+```twig
+{% extends '_layouts/cp.twig' %}
+{% import '_includes/forms.twig' as forms %}
+
+{% set title = item.title %}
+{% set fullPageForm = true %}
+
+{# Right-hand collapsible details panel (metadata: status, dates, slug) #}
+{% block details %}
+    {{ forms.lightswitchField({
+        label: 'Enabled'|t('my-plugin'), name: 'enabled', on: item.enabled,
+    }) }}
+    {{ forms.dateTimeField({
+        label: 'Post Date'|t('my-plugin'), name: 'postDate', value: item.postDate,
+    }) }}
+{% endblock %}
+
+{# Left-hand page sidebar (e.g. a structure tree or filters) #}
+{% block sidebar %}
+    {# nav, tree, or secondary controls #}
+{% endblock %}
+
+{% block content %}
+    {{ actionInput('my-plugin/items/save') }}
+    {{ redirectInput('my-plugin/items') }}
+    {# main fields #}
+{% endblock %}
+```
+
+The layout exposes these regions (each available as a block or a `{% set %}` var of the same name):
+
+| Region | What it renders |
+|--------|-----------------|
+| `content` | The main content pane (always present). |
+| `sidebar` | Left-hand page sidebar. Adds the `has-sidebar` class to `#main-content`. |
+| `details` | Right-hand collapsible details panel — metadata, status, dates. Adds `has-details`. |
+| `footer` | A footer strip inside the content pane (below `content`). |
+| `contextMenu` | Markup beside the breadcrumbs in the global header. |
+| `toolbar` | Toolbar row beside the page title. |
+
+Setting `details` (block or var) is what makes the right-hand panel and its disclosure toggle appear — there's no separate flag. The same goes for `sidebar` and `footer`: the region only renders if its block/var is non-empty.
+
+### Tabbed Settings Pages
+
+Two approaches for multi-tab CP pages: Twig-level tabs (template-driven) and PHP-level tabs (controller-driven via `asCpScreen()`).
+
+#### Tabs switch panes — they never navigate
+
+`Craft.Tabs` intercepts every tab click: the compiled handler (`web/assets/cp/dist/cp.js`) calls `preventDefault()` and `selectTab()` unconditionally (the only carve-out is ctrl/cmd-click on a `#` href), and `selectTab()` only moves `.sel`/ARIA state while `Craft.CP`'s `selectTab` listener toggles `hidden` on the pane matching `$(tab.href)`. A tab whose `url` is a real page URL therefore does nothing when clicked — no navigation, and no pane to match. No core template sets URL-based tabs (grepping `set tabs` under `src/templates/` hits only the layout internals and the Matrix block partial).
+
+The decision rule: `tabs` is for same-page anchor panes only. When permission-gated or structurally separate sections live at their own URLs, use the inner sidebar nav idiom instead — `settings/users/_layout.twig` renders `_includes/nav` in `{% block sidebar %}` with one URL per section (see [Inner sidebar navigation](#inner-sidebar-navigation-_includesnavtwig)).
+
+#### Twig-level tabs
+
+Set the `tabs` variable in your template; the CP layout renders the tab bar automatically when `tabs` has more than one entry. Each tab is an **anchor to a same-page pane** (`url: '#paneId'`) — see [Anchor-based tabs](#anchor-based-tabs-single-page) below for the full example, and use `selectedTab` to highlight the active pane.
+
+Don't give a tab a real page `url` or register CP URL rules per tab — those tabs are dead clicks (see [Tabs switch panes](#tabs-switch-panes--they-never-navigate) above). When sections are structurally separate or permission-gated and genuinely need their own URLs, use the inner sidebar nav idiom instead — `settings/users/_layout.twig` renders `_includes/nav` in `{% block sidebar %}` with one URL per section.
+
+**Don't hand-write or include the tab strip.** `_includes/tabs.twig` is a private helper that `_layouts/cp.twig` calls internally to render the strip from the `tabs` variable in *its own* rendering context. Including the partial yourself — or emitting the markup by hand — produces the tab strip but no JS wiring, no ARIA controller setup, no error highlighting per tab. The strip's real container is `<div class="pane-tabs">` wrapping a `role="tablist"`, and each tab is an `<a role="tab">` carrying `aria-controls` (pointing at its pane ID) plus `.sel` on the active one (`tabs.twig:2,16,23-37`). There is **no** `.tabs` or `.tab` class — the label lives in a `.tab-label` span — so any snippet keying off `.tab` is not Craft's markup. The fix is always to `{% extends "_layouts/cp" %}` and `{% set tabs = ... %}` — let the layout handle the strip. See [PHP-level tabs](#php-level-tabs-via-ascpscreen) and [Anchor-based tabs](#anchor-based-tabs-single-page) for the wiring; if you find yourself reaching for `{% include "_includes/tabs" %}`, you're in the wrong template lineage.
+
+#### Anchor-based tabs (single page)
+
+For tabs that switch content without a page reload, use anchor-based tab IDs. Craft's JS handles showing/hiding containers whose IDs match the tab anchors:
+
+```twig
+{% set tabs = {
+    general: { label: 'General'|t('my-plugin'), url: '#general' },
+    mapping: { label: 'Mapping'|t('my-plugin'), url: '#mapping' },
+    advanced: { label: 'Advanced'|t('my-plugin'), url: '#advanced' },
+} %}
+
+{% block content %}
+    {{ actionInput('my-plugin/settings/save') }}
+    {{ redirectInput('my-plugin/settings') }}
+
+    <div id="general">
+        {# General settings fields #}
+    </div>
+
+    <div id="mapping" class="hidden">
+        {# Mapping settings fields #}
+    </div>
+
+    <div id="advanced" class="hidden">
+        {# Advanced settings fields #}
+    </div>
+{% endblock %}
+```
+
+Craft's CP JavaScript automatically shows the panel matching the selected tab and hides the others. Initial state: all panels except the first get `class="hidden"`.
+
+> **Tab keys become DOM IDs — pick names that don't collide with Craft's chrome.** A tab key like `notifications` generates `url: '#notifications'` and a matching `<div id="notifications">`, which collides with Craft's toast container (`<div id="notifications" role="status">`). Because `$('#notifications')` returns the first DOM match, your pane wins — toasts stop appearing and the pane renders in the wrong layout region. Use feature-specific keys (`notificationSettings`, not `notifications`). See [Reserved DOM IDs](#reserved-dom-ids) for the full list.
+
+#### PHP-level tabs via asCpScreen()
+
+For controller-driven screens (custom element edit pages, non-template responses), use the `tabs()` fluent method on `CpScreenResponseBehavior`:
+
+```php
+/** @var Response|CpScreenResponseBehavior $response */
+$response = $this->asCpScreen()
+    ->title($item->title ?? Craft::t('my-plugin', 'New Item'))
+    ->action('my-plugin/items/save')
+    ->redirectUrl('my-plugin/items')
+    ->tabs([
+        'itemContent' => [
+            'label' => Craft::t('my-plugin', 'Content'),
+            'url' => '#itemContent',
+        ],
+        'itemSettings' => [
+            'label' => Craft::t('my-plugin', 'Settings'),
+            'url' => '#itemSettings',
+        ],
+    ])
+    ->contentTemplate('my-plugin/items/_edit', [
+        'item' => $item,
+    ]);
+```
+
+Or add tabs individually with `addTab()`:
+
+```php
+$response->addTab(
+    id: 'integrations',
+    label: Craft::t('my-plugin', 'Integrations'),
+    url: '#integrations',
+);
+```
+
+`addTab()` accepts optional `class` (string or array) and `visible` (bool, default `true`) parameters. Set `visible: false` to hide a tab conditionally.
+
+#### Fuller edit screen via asCpScreen()
+
+A real element/edit screen needs more than tabs and content — a right-hand meta sidebar, save/redirect wiring, an error summary, and extra header buttons. All of these are fluent methods on `CpScreenResponseBehavior` (verified against `vendor/craftcms/cms/src/web/CpScreenResponseBehavior.php`):
+
+```php
+/** @var Response|CpScreenResponseBehavior $response */
+$response = $this->asCpScreen()
+    ->title($item->id ? $item->title : Craft::t('my-plugin', 'Create a new item'))
+    ->selectedSubnavItem('items')
+    ->action('my-plugin/items/save')
+    ->redirectUrl('my-plugin/items')
+    ->errorSummary($item->hasErrors() ? $this->_errorSummaryHtml($item) : null)
+    ->additionalButtonsHtml($item->id ? $this->_previewButtonHtml($item) : null)
+    ->tabs([
+        'itemContent' => ['label' => Craft::t('my-plugin', 'Content'), 'url' => '#itemContent'],
+        'itemSettings' => ['label' => Craft::t('my-plugin', 'Settings'), 'url' => '#itemSettings'],
+    ])
+    ->contentTemplate('my-plugin/items/_edit', ['item' => $item])
+    ->metaSidebarTemplate('my-plugin/items/_meta', ['item' => $item]);
+```
+
+| Method | Sets |
+|--------|------|
+| `action($route)` | The controller action the form posts to (`my-plugin/items/save`). |
+| `redirectUrl($url)` | Where the form redirects after a successful save. |
+| `selectedSubnavItem($key)` | Highlights the matching subnav entry in the global sidebar. |
+| `errorSummary($html)` | The errors-summary block rendered above the content pane. Pair with `errorSummaryTemplate($template, $vars)`. |
+| `additionalButtonsHtml($html)` | Extra buttons in the page header, left of the Save button (e.g. Preview). Pair with `additionalButtonsTemplate($template, $vars)`. |
+| `metaSidebarHtml($html)` | The right-hand meta panel (slug, dates, status). Pair with `metaSidebarTemplate($template, $vars)`. |
+| `pageSidebarHtml($html)` | The left-hand page sidebar (full-page screens only). Pair with `pageSidebarTemplate($template, $vars)`. |
+
+The `*Html()` methods accept a string or a `callable` returning a string; the `*Template()` variants are sugar that render a CP-mode Twig template for you. `errorSummary`, `additionalButtonsHtml`, `pageSidebarHtml`, `selectedSubnavItem`, and `redirectUrl` only apply to full-page screens — slideouts ignore them.
+
+For element-backed screens, prefer `Element::cpEditUrl()` / the element's own `prepareEditScreen()` over hand-assembling this; the manual chain above is for custom non-element edit screens.
+
+### Reserved DOM IDs
+
+Craft's CP JavaScript caches chrome refs via `$('#foo')` during `Craft.CP` init, and `$('#foo')` returns the **first** match in document order. A plugin element that reuses one of these IDs and appears in the DOM before Craft's own — or that replaces it inside a `{% block %}` — silently hijacks Craft's reference. Common symptoms: toast notifications stop appearing, modal ARIA masking breaks, the tab strip wires to the wrong pane, or a pane renders inside the global nav.
+
+The full list of IDs Craft's CP JS looks up directly, grouped by where they appear in the layout (outer to inner):
+
+| Category | Reserved IDs |
+|---|---|
+| Layout regions | `#global-container`, `#page-container`, `#main`, `#main-container`, `#main-content`, `#main-form` |
+| Notifications & a11y | `#notifications`, `#cp-notification-heading`, `#alerts`, `#global-live-region`, `#global-skip-links` |
+| Global header & nav | `#global-sidebar`, `#nav`, `#nav-utilities`, `#crumbs`, `#crumb-list`, `#primary-nav-toggle`, `#announcements-btn`, `#user-info`, `#account-menu`, `#context-menu-container` |
+| Page header | `#header`, `#header-container`, `#page-title`, `#page-heading`, `#revision-indicators`, `#toolbar`, `#action-buttons` |
+| Content pane | `#content`, `#content-container`, `#content-header`, `#content-notice`, `#tabs` |
+| Sidebar / details | `#sidebar`, `#sidebar-container`, `#sidebar-toggle`, `#details`, `#details-container`, `#details-toggle`, `#details-toggle-wrapper` |
+| Footer | `#footer`, `#app-info`, `#edition-logo`, `#trial-info` |
+
+Verified against `vendor/craftcms/cms/src/web/assets/cp/src/js/CP.js` and `vendor/craftcms/cms/src/templates/_layouts/cp.twig` in Craft 5.
+
+**How to apply.** When picking a tab key, container ID, or HUD/slideout root ID, prefix or suffix with your plugin handle or feature name. The tab key, the `url: '#...'` anchor, and the matching `<div id="...">` must all line up — so changing the key changes all three:
+
+```twig
+{# Wrong — collides with Craft's #notifications toast container #}
+{% set tabs = {
+    notifications: { label: 'Notifications'|t('my-plugin'), url: '#notifications' },
+} %}
+<div id="notifications" class="hidden">...</div>
+
+{# Right — feature-specific, no collision #}
+{% set tabs = {
+    notificationSettings: { label: 'Notifications'|t('my-plugin'), url: '#notificationSettings' },
+} %}
+<div id="notificationSettings" class="hidden">...</div>
+```
+
+This also applies to Garnish's modal background masking: `Garnish.hideModalBackgroundLayers()` does `.not('#notifications')` against body children, so a plugin element with `id="notifications"` at body level stays visible to screen readers when a modal opens, breaking the modal's ARIA isolation. See `craft-garnish` skill `references/utilities.md` (ARIA & Focus Management).
+
+### CP template routing bypasses controllers
+
+A plugin's `templates/` directory is registered as a CP template root automatically (by handle). Craft's `UrlManager` then applies a **template-routing fallback** after its rule and element matching:
+
+```php
+// craft\web\UrlManager::_getTemplateRoute()
+$matches = $this->_isPublicTemplatePath($request);      // → View::doesTemplateExist($path, publicOnly: true)
+// ...
+return ['templates/render', ['template' => $path]];
+```
+
+In CP template mode the "private" trigger is a hardcoded underscore — `View::setTemplateMode()` sets `$this->_privateTemplateTrigger = '_'` for `TEMPLATE_MODE_CP`, and unlike the site-mode `privateTemplateTrigger` config setting, it is **not configurable**.
+
+Put together: **any non-underscore-prefixed template under your plugin's `templates/` is directly routable in the CP.** `templates/dashboard.twig` in a plugin handled `my-plugin` renders at `{cpTrigger}/my-plugin/dashboard` even if you never registered a route and even if the controller you *intended* to serve it has an edition check, a permission check, and an elevated-session requirement in `beforeAction()`. The fallback never touches your controller, so none of those gates run.
+
+This is a real edition-gate and permission-gate bypass, not a theoretical one. Two rules:
+
+**1. Underscore-prefix every template that isn't an intentional direct route.**
+
+```
+templates/
+  _dashboard.twig      ← rendered by a controller via renderTemplate('my-plugin/_dashboard')
+  _settings/
+    _index.twig
+    _edit.twig
+  public-status.twig   ← deliberately directly routable, gated in the template itself
+```
+
+`renderTemplate()` renders underscore-prefixed paths perfectly well — the prefix only affects *routability*.
+
+**2. If a template is deliberately directly routable, gate it in the template.** There's no controller to do it for you:
+
+```twig
+{% requirePermission 'my-plugin:view-overview' %}
+{% if not craft.app.plugins.getPlugin('my-plugin').is(MyPlugin::EDITION_PRO) %}
+    {% exit 404 %}
+{% endif %}
+```
+
+**Audit rule:** `ls` the plugin's `templates/` tree and treat every path without a leading underscore as a public CP URL. Compare that list against your registered CP routes; anything in the first list and not the second is an unintended entry point.
+
+### VueAdminTable
+
+```twig
+{% js %}
+new Craft.VueAdminTable({
+    columns: [
+        { name: '__slot:title', title: Craft.t('my-plugin', 'Name') },
+        { name: 'handle', title: Craft.t('my-plugin', 'Handle') },
+    ],
+    container: '#items-vue-admin-table',
+    deleteAction: 'my-plugin/items/delete-item',
+    reorderAction: 'my-plugin/items/reorder-items',
+    tableData: {{ items|json_encode(constant('JSON_HEX_TAG'))|raw }},
+});
+{% endjs %}
+```
+
+## CP Navigation
+
+### Plugin CP Section
+
+Enable CP section in the plugin class, then override `getCpNavItem()` for subnav:
+
+```php
+public bool $hasCpSection = true;
+
+public function getCpNavItem(): ?array
+{
+    $item = parent::getCpNavItem();
+    // Badge count must be cheap — runs on every CP page load, not just this plugin's pages
+    $item['badgeCount'] = Craft::$app->getCache()->getOrSet('my-plugin:pending-count', fn() =>
+        MyElement::find()->status('pending')->count(), 300);
+    $item['subnav'] = [
+        'dashboard' => ['label' => Craft::t('my-plugin', 'Dashboard'), 'url' => 'my-plugin'],
+        'items' => ['label' => Craft::t('my-plugin', 'Items'), 'url' => 'my-plugin/items'],
+    ];
+
+    // Gate subnav items behind permissions
+    if (Craft::$app->getUser()->getIdentity()?->can('my-plugin:settings')) {
+        $item['subnav']['settings'] = [
+            'label' => Craft::t('my-plugin', 'Settings'),
+            'url' => 'my-plugin/settings',
+        ];
+    }
+    return $item;
+}
+```
+
+### Module CP Navigation
+
+Modules cannot use `hasCpSection`. Register nav items via event — note this event lives on `craft\web\twig\variables\Cp`, **not** `craft\helpers\Cp`:
+
+```php
+use craft\web\twig\variables\Cp;
+
+Event::on(Cp::class, Cp::EVENT_REGISTER_CP_NAV_ITEMS,
+    function(RegisterCpNavItemsEvent $event) {
+        if (!Craft::$app->getUser()->getIdentity()?->can('accessModule')) {
+            return;
+        }
+        $event->navItems[] = [
+            'url' => 'my-module',
+            'label' => Craft::t('my-module', 'My Module'),
+            'icon' => 'gear',
+            'badgeCount' => 0,
+        ];
+    }
+);
+```
+
+### Icon Options
+
+The `icon` key accepts a Craft icon identifier (`'gear'`, `'wand'`, `'magnifying-glass'`) or inline SVG. Check `vendor/craftcms/cms/src/icons/` for available built-in icons.
+
+## Settings Pages
+
+Three pieces: model, plugin class methods, and template. But before any of those, **pick the right pattern** — `settingsHtml()` and a custom controller are not interchangeable.
+
+### Choosing the pattern
+
+| You need | Use |
+|---|---|
+| Single-pane settings, save action only | `settingsHtml()` returning inert HTML |
+| Tabs, multi-section layout, hash deep-links, error highlighting per tab | `getSettingsResponse()` redirect → custom controller → template extending `_layouts/cp` |
+| Custom actions beyond save (test connection, sync now, reset to defaults) | Custom controller |
+
+The boundary is structural, not cosmetic. `settingsHtml()` returns HTML that Craft embeds inside `vendor/craftcms/cms/src/templates/settings/plugins/_settings.twig`. That wrapper extends `_layouts/cp` but never `{% set tabs = ... %}` — and `_layouts/cp.twig` reads `tabs` from *its own* rendering context (line 84 of current Craft source), not from the `{% block content %}` slot your settingsHtml ends up in. So no `tabs` variable you set inside `settingsHtml()` output can reach the layout. You'll get markup if you manually include `_includes/tabs.twig`, but no JS wiring, no ARIA controller, no per-tab error highlighting — exactly the "not quite Craft code" result that wastes hours chasing cosmetic fixes for a structural problem.
+
+If the requirement contains tabs or custom non-save actions, jump straight to the controller pattern. Don't try to retrofit tabs into `settingsHtml()`.
+
+### Settings Model
+
+```php
+class Settings extends Model
+{
+    public string $apiUrl = '';
+    public string $apiKey = '';
+    public bool $enableSync = false;
+    public int $batchSize = 100;
+
+    protected function defineRules(): array
+    {
+        $rules = parent::defineRules();
+        $rules[] = [['apiUrl', 'apiKey'], 'required'];
+        $rules[] = [['batchSize'], 'integer', 'min' => 1, 'max' => 1000];
+        return $rules;
+    }
+}
+```
+
+### Plugin Class Methods
+
+```php
+protected function createSettingsModel(): ?Model
+{
+    return new Settings();
+}
+
+protected function settingsHtml(): ?string
+{
+    return Craft::$app->getView()->renderTemplate('my-plugin/_settings.twig', [
+        'settings' => $this->getSettings(),
+    ]);
+}
+```
+
+### Settings Template with Env Var Support
+
+```twig
+{% import '_includes/forms.twig' as forms %}
+{% set allowAdminChanges = craft.app.config.general.allowAdminChanges %}
+
+{{ forms.autosuggestField({
+    label: 'API URL'|t('my-plugin'), id: 'apiUrl', name: 'apiUrl',
+    value: settings.apiUrl, suggestEnvVars: true, suggestAliases: true,
+    required: true, disabled: not allowAdminChanges,
+}) }}
+
+{{ forms.autosuggestField({
+    label: 'API Key'|t('my-plugin'), id: 'apiKey', name: 'apiKey',
+    value: settings.apiKey, suggestEnvVars: true,
+    required: true, disabled: not allowAdminChanges,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Enable Sync'|t('my-plugin'), id: 'enableSync', name: 'enableSync',
+    on: settings.enableSync, disabled: not allowAdminChanges,
+}) }}
+```
+
+`disabled: not allowAdminChanges` on every field prevents editing in production. `suggestEnvVars: true` shows env var dropdown when user types `$`. At runtime, resolve with `App::parseEnv($settings->apiKey)`.
+
+### Config-file overrides: warn on the field, don't disable it
+
+When a plugin supports a `config/<handle>.php` override file, a settings field whose value is overridden there renders as **editable while the config file silently wins on read** — the user edits, saves, sees a success flash, and nothing changes. Craft does **not** surface this automatically; `settingsHtml()` has no idea the override exists. The bug is the silence, and the fix is a per-field warning — the field stays editable (the DB value is still real; it's what applies wherever the config file doesn't set that key, and what returns if the override is removed). Don't render it `disabled`.
+
+The ecosystem idiom is Blitz's (verified in `putyourlightson/craft-blitz` 5.12.9). Three pieces:
+
+**1. The controller passes the raw file contents once** (`src/controllers/SettingsController.php:113`):
+
+```php
+'config' => Craft::$app->getConfig()->getConfigFromFile('my-plugin'),
+```
+
+`getConfigFromFile()` returns what the file sets — only keys present in the file are overriding anything.
+
+**2. A shared macro pair** (Blitz's `src/templates/_macros.twig:10` and `:14`):
+
+```twig
+{% macro configWarning(setting) -%}
+    {{ 'This is being overridden by the `{setting}` config setting.'|t('my-plugin', {setting: setting})|markdown(inlineOnly=true) }}
+{%- endmacro %}
+
+{% macro configFieldWarning(setting) -%}
+    <div class="field">
+        <p class="warning has-icon">
+            <span class="icon" aria-hidden="true"></span>
+            <span class="visually-hidden">{{ 'Warning:'|t('my-plugin') }} </span>
+            <span>{{ 'These settings are being overridden by the `{setting}` config setting.'|t('my-plugin', {setting: setting})|markdown(inlineOnly=true) }}</span>
+        </p>
+    </div>
+{%- endmacro %}
+```
+
+`configWarning` feeds a field macro's `warning` parameter; `configFieldWarning` is the standalone block for a group of settings rendered by custom markup that has no `warning` slot.
+
+**3. One clause per field** (Blitz's `src/templates/_settings.twig:90`, and ~20 more like it):
+
+```twig
+{{ forms.lightswitchField({
+    label: 'Enable Sync'|t('my-plugin'), name: 'enableSync',
+    on: settings.enableSync,
+    warning: config.enableSync is defined ? configWarning('enableSync'),
+}) }}
+```
+
+Cost is one line per field plus the shared macros. `warning:` accepting `null`/`false` means the ternary needs no `: null` branch. This composes with the `allowAdminChanges` handling above — a field can be read-only for one reason and warned-about for the other; they're independent axes.
+
+For tabs, multi-section layouts, or actions beyond save, override `getSettingsResponse()` to redirect to a route you own, register CP URL rules, render a template that extends `_layouts/cp` directly, and own the save flow in a controller.
+
+**Plugin class:**
+
+```php
+public bool $hasCpSettings = true;
+public bool $hasReadOnlyCpSettings = true;
+
+public function getSettingsResponse(): mixed
+{
+    return Craft::$app->getResponse()->redirect(
+        UrlHelper::cpUrl('my-plugin/settings')
+    );
+}
+```
+
+`$hasReadOnlyCpSettings = true` is required as soon as you override `getSettingsResponse()`. The base `Plugin::init()` only auto-flips this flag when the default `getSettingsResponse()` is in use — overriding it makes Craft treat the override as the source of truth and stop guessing. Without the explicit declaration, the CP nav link to your settings disappears when `allowAdminChanges = false`. See `references/cp.md` Read-Only Mode section for the broader allowAdminChanges access path.
+
+**URL rules:**
+
+```php
+use craft\events\RegisterUrlRulesEvent;
+use craft\web\UrlManager;
+use yii\base\Event;
+
+Event::on(
+    UrlManager::class,
+    UrlManager::EVENT_REGISTER_CP_URL_RULES,
+    function(RegisterUrlRulesEvent $event) {
+        $event->rules['my-plugin'] = 'my-plugin/settings/edit';
+        $event->rules['my-plugin/settings'] = 'my-plugin/settings/edit';
+    }
+);
+```
+
+The plugin handle alone (`'my-plugin'`) and the explicit `/settings` path both route to the same edit action — matching what `getSettingsResponse()` redirects to and what users land on when clicking your CP nav item.
+
+**SettingsController:**
+
+```php
+class SettingsController extends craft\web\Controller
+{
+    // =========================================================================
+    public function beforeAction($action): bool
+    {
+        // View accessible in read-only mode, save action gated separately.
+        $this->requireAdmin(false);
+        return parent::beforeAction($action);
+    }
+
+    public function actionEdit(): Response
+    {
+        $plugin = MyPlugin::getInstance();
+        return $this->renderTemplate('my-plugin/settings/_edit', [
+            'plugin' => $plugin,
+            'settings' => $plugin->getSettings(),
+        ]);
+    }
+
+    public function actionSave(): ?Response
+    {
+        $this->requirePostRequest();
+        $this->requireAdmin();
+
+        $plugin = MyPlugin::getInstance();
+        $settings = $plugin->getSettings();
+        $posted = $this->request->getBodyParam('settings', []);
+        $settings->setAttributes($posted, false);
+
+        if (!Craft::$app->getPlugins()->savePluginSettings($plugin, $settings->toArray())) {
+            $this->setFailFlash(Craft::t('my-plugin', "Couldn't save settings."));
+            return $this->renderTemplate('my-plugin/settings/_edit', [
+                'plugin' => $plugin,
+                'settings' => $settings,
+            ]);
+        }
+
+        $this->setSuccessFlash(Craft::t('my-plugin', 'Settings saved.'));
+        return $this->redirectToPostedUrl();
+    }
+}
+```
+
+`requireAdmin(false)` on view, `requireAdmin()` (strict) on save — view stays accessible in read-only mode, write is gated. The body-param shape is `settings[xxx]` (a map under a single `settings` key) — matches what `savePluginSettings()` expects and avoids the [Split Settings footgun](#split-settings-pages-savepluginsettings-footgun). On validation failure, re-render with the same `$settings` instance so the form retains posted values and `settings.getErrors('xxx')` resolves.
+
+**Template (`my-plugin/templates/settings/_edit.twig`):**
+
+```twig
+{% extends "_layouts/cp" %}
+{% import "_includes/forms.twig" as forms %}
+
+{% set title = "MyPlugin Settings"|t('my-plugin') %}
+{% set fullPageForm = true %}
+
+{% set tabs = {
+    general: { label: "General"|t('my-plugin'), url: '#general' },
+    advanced: { label: "Advanced"|t('my-plugin'), url: '#advanced' },
+} %}
+
+{% set selectedTab = 'general' %}
+
+{% block content %}
+    {{ actionInput('my-plugin/settings/save') }}
+    {{ hiddenInput('pluginHandle', 'my-plugin') }}
+    {{ redirectInput('my-plugin/settings') }}
+
+    <div id="general">
+        {{ forms.textField({
+            label: "API URL"|t('my-plugin'),
+            id: 'apiUrl',
+            name: 'settings[apiUrl]',
+            value: settings.apiUrl,
+            errors: settings.getErrors('apiUrl'),
+        }) }}
+    </div>
+
+    <div id="advanced" class="hidden">
+        {# Advanced-tab fields, same settings[xxx] name shape #}
+    </div>
+{% endblock %}
+```
+
+Notes:
+- Template extends `_layouts/cp` (not `_layouts/basecp`, not a wrapper). That's the load-bearing line — setting `tabs` here reaches the layout because cp.twig reads it from this template's rendering context.
+- Initial state: every pane except the selected one gets `class="hidden"`. Craft's CP JS (auto-attached to the `.pane-tabs` strip emitted by `_includes/tabs.twig`, which cp.twig includes for you) toggles those on tab switch. You write no JS for this.
+- Field `name` attributes use the `settings[xxx]` bracket shape. The controller's `getBodyParam('settings', [])` collects them as one map, which lets `savePluginSettings($plugin, $settings->toArray())` persist the full settings model — sidestepping the per-tab-action footgun documented below.
+- `fullPageForm = true` makes cp.twig wrap your content in a `<form>` with the right CSRF token and POST target, and renders the save button in the page header automatically.
+
+### Keep settings inside the plugin's own CP section
+
+When a plugin registers its own CP nav section (`hasCpSection = true`), render its settings **inside that section**, not only via the global `settings/plugins/<handle>` screen. The global screen drops the user out of the section: wrong breadcrumb, and the section's subnav collapses. Give the plugin one canonical settings location in its own section instead.
+
+The pieces (most are already shown above — this ties them together):
+
+- **In-section page.** The settings template (`extends '_layouts/cp'`, `fullPageForm`) sets `selectedSubnavItem = 'settings'` so the section subnav stays highlighted, and a plugin-root crumb so the breadcrumb reads within the section:
+  ```twig
+  {% set selectedSubnavItem = 'settings' %}
+  {% set crumbs = [{ label: 'My Plugin'|t('my-plugin'), url: url('my-plugin') }] %}
+  ```
+- **Subnav points at your route.** The `Settings` item in `getCpNavItem()`'s subnav uses `'url' => 'my-plugin/settings'` — **never** `'settings/plugins/my-plugin'` (that jumps back to the global screen and out of the section).
+- **One canonical location.** Override `getSettingsResponse()` to redirect the global entry into the section (shown above), so `settings/plugins/<handle>` and your section land on the same page.
+- **Reuse one fields fragment for both screens.** Keep the actual fields in a shared `_settings` fragment with **bare** names (`name: 'apiUrl'`, not `'settings[apiUrl]'`). Craft's global screen wraps `settingsHtml()` in `namespaceInputs(fn() => …, 'settings')`, so bare names auto-post as `settings[...]` there. On your in-section page, wrap the include yourself so it posts the same shape:
+  ```twig
+  {% namespace 'settings' %}
+      {% include 'my-plugin/settings/_settings' with { settings } only %}
+  {% endnamespace %}
+  ```
+  Both screens then post `settings[...]`, which is exactly what `savePluginSettings($plugin, $settings->toArray())` expects. (Verified against Craft 5: `Plugin::settingsResponse()` namespaces settings HTML under `'settings'`; the `{% namespace %}` tag / `|namespace` filter both delegate to `View::namespaceInputs()`.)
+
+  **Caution — this `{% namespace %}` reuse is only safe on a *non-tabbed* fragment.** `View::namespaceInputs()` rewrites `id` attributes as well as `name`s, so on a tabbed screen it renames pane ids and breaks Craft's tab JS (every tab shows the first pane). For a tabbed settings screen, don't wrap in `{% namespace %}` — carry `name: 'settings[...]'` explicitly on each field and keep pane ids literal. See `cp-ui-patterns.md` (CP Screen Composition → the namespace/id tab trap).
+
+### Split Settings Pages (savePluginSettings footgun)
+
+`Craft::$app->getPlugins()->savePluginSettings($plugin, $settings)` only persists the keys present in `$settings`. Internally it calls `$pluginSettings->toArray(array_keys($settings))`, meaning any settings NOT submitted in the current request are silently dropped from project config.
+
+If your plugin has tabbed or multi-page settings, each tab's form only submits its own fields. **You must merge with existing settings before saving:**
+
+```php
+public function actionSaveGeneralSettings(): ?Response
+{
+    $this->requirePostRequest();
+    $this->requireAdmin();
+
+    $plugin = MyPlugin::getInstance();
+    $settings = $plugin->getSettings();
+
+    // Only update the fields from this tab
+    $settings->apiUrl = $this->request->getBodyParam('apiUrl');
+    $settings->apiKey = $this->request->getBodyParam('apiKey');
+
+    // Save the FULL settings model — all properties are present
+    if (!Craft::$app->getPlugins()->savePluginSettings($plugin, $settings->toArray())) {
+        $this->setFailFlash(Craft::t('my-plugin', 'Couldn't save settings.'));
+        return null;
+    }
+
+    $this->setSuccessFlash(Craft::t('my-plugin', 'Settings saved.'));
+    return $this->redirectToPostedUrl();
+}
+```
+
+The key: load the full settings model first, update only the relevant properties, then pass `$settings->toArray()` (all keys). Never pass `$this->request->getBodyParams()` directly to `savePluginSettings()` on a split-settings page — you'll lose every setting not on the current tab.
+
+## Form Macros Reference
+
+All macros live in `_includes/forms.twig`. Import with `{% import '_includes/forms.twig' as forms %}`.
+
+Every `*Field` macro wraps its input in a `<div class="field">` with label, instructions, tip, warning, and error display. The non-`Field` variants (e.g., `forms.text` vs `forms.textField`) render just the input — use these when building custom layouts or embedding inputs in other containers.
+
+`instructions`, `tip`, and `warning` all support Markdown — Craft runs each through `Cp::parseMarkdown()` (`instructions` at `Cp.php:1743`; `tip`/`warning` via `Cp::_noticeHtml()`), so inline links and emphasis render. `tip` and `warning` are just the CSS classes `notice` and `warning` on a `<p>` element (`Cp::_noticeHtml()`, `Cp.php:1859-1860`) — their exact appearance is theme-driven, so describe them by role ("a tip" / "a warning"), not by color.
+
+### Common parameters (all field macros)
+
+| Param | Type | Purpose |
+|-------|------|---------|
+| `label` | `string` | Field label (translate with `\|t('my-plugin')`) |
+| `instructions` | `string` | Help text below the label |
+| `tip` | `string` | Info tip below the input (rendered as `<p class="notice">`; Markdown-aware) |
+| `warning` | `string` | Warning below the input (rendered as `<p class="warning">`; Markdown-aware) |
+| `id` | `string` | Input element ID |
+| `name` | `string` | Input name (for POST data) |
+| `value` | `mixed` | Current value |
+| `errors` | `array` | Validation errors from `item.getErrors('field')` |
+| `required` | `bool` | Shows required indicator |
+| `first` | `bool` | Auto-focus this field on page load |
+| `disabled` | `bool` | Disable the input |
+| `fieldClass` | `string` | Extra CSS class on the outer `<div class="field">` |
+
+### Input macros
+
+| Macro | Purpose | Key extra params |
+|-------|---------|-----------------|
+| `forms.textField` | Single-line text | `placeholder`, `size`, `maxlength`, `type` (e.g. `'email'`, `'url'`, `'number'`) |
+| `forms.textareaField` | Multi-line text | `rows`, `placeholder`, `maxlength` |
+| `forms.passwordField` | Password input | `placeholder` |
+| `forms.selectField` | Dropdown | `options` (array of `{label, value}` or flat `{value: label}`) |
+| `forms.multiselectField` | Multi-select list | `options`, `values` (array of selected values) |
+| `forms.lightswitchField` | Toggle switch (single boolean) | `on` (bool), `small` (bool), `onLabel`/`offLabel`, `toggle` (CSS selector to show/hide) — see [Lightswitch vs checkbox](#lightswitch-vs-checkbox) |
+| `forms.checkboxField` | Single checkbox | `checked` (bool), `toggle` (CSS selector) |
+| `forms.checkboxGroupField` | Multiple checkboxes | `options`, `values` (array of checked values) |
+| `forms.radioGroupField` | Radio button group | `options`, `value` |
+| `forms.buttonGroupField` | Button-style option selector (exclusive) | `options`, `value` — see [buttonGroupField](#buttongroupfield) |
+| `forms.selectizeField` | Searchable / taggable select | `options`, `value`, `multi` (bool — tag mode), `selectizeOptions` |
+| `forms.colorField` | Color picker | `value` (hex string) |
+| `forms.dateTimeField` | Date and time picker | `value` (DateTime object or string) |
+| `forms.timeField` | Time-only picker | `value` (time string) |
+| `forms.timeZoneField` | Time-zone selector | `value` (time-zone identifier) |
+| `forms.languageMenuField` | Language / locale selector | `value` (locale ID) |
+| `forms.copytextField` | Read-only value with a copy button | `value` — see [copytextField](#copytextfield) |
+| `forms.moneyField` | Currency input | `currency`, `currencyLabel`, `decimals`, `showClear` — see [moneyField](#moneyfield) |
+| `forms.fileField` | File upload input | `name` (POSTs as a `$_FILES` entry) |
+| `forms.iconPickerField` | Craft icon picker | `value` (icon identifier) |
+| `forms.rangeField` | Range slider (with paired number input) | `min`, `max`, `step`, `suffix` |
+| `forms.autosuggestField` | Text with autocomplete | `suggestEnvVars`, `suggestAliases`, `suggestions` |
+| `forms.editableTableField` | Editable table with add/delete/reorder | `cols`, `rows`, `allowAdd`, `allowDelete`, `allowReorder` — see [Editable Table](#editable-table) |
+| `forms.elementSelectField` | Element relation selector (entries, assets, users) | `elementType`, `sources`, `criteria`, `limit`, `elements` (pre-selected), `modalStorageKey` |
+| `forms.fieldLayoutDesignerField` | Field layout designer UI | `fieldLayout` (FieldLayout object) |
+| `forms.hidden` | Hidden input (no field wrapper) | `name`, `value` |
+| `forms.field` | Generic wrapper — you provide the inner HTML | `input` (raw HTML string) |
+
+### autosuggestField
+
+```twig
+{{ forms.autosuggestField({
+    label: 'API Endpoint'|t('my-plugin'),
+    id: 'apiUrl',
+    name: 'apiUrl',
+    value: settings.apiUrl,
+    suggestEnvVars: true,
+    suggestAliases: true,
+    placeholder: '$MY_API_URL',
+}) }}
+```
+
+Typing `$` shows environment variables, `@` shows Yii aliases (`@web`, `@webroot`, custom aliases). Standard for any setting that should support env var overrides.
+
+### elementSelectField
+
+```twig
+{{ forms.elementSelectField({
+    label: 'Related Entries'|t('my-plugin'),
+    id: 'relatedEntries',
+    name: 'relatedEntries',
+    elementType: 'craft\\elements\\Entry',
+    sources: ['section:blog', 'section:news'],
+    criteria: { status: null },
+    limit: 5,
+    elements: existingRelatedEntries,
+    modalStorageKey: 'my-plugin.relatedEntries',
+}) }}
+```
+
+Server-side, the POST value is an array of element IDs: `$ids = $request->getBodyParam('relatedEntries');`. Use `modalStorageKey` to remember the user's last-selected source in the modal.
+
+**A cleared selection posts `''`, not an empty array.** The macro renders `{{ hiddenInput(name, '') }}` ahead of the per-element inputs (`src/templates/_includes/forms/elementSelect.twig:1-3`), so with nothing selected the param is an empty string — while an API client can legitimately post `relatedEntries[]` as an empty *array*. The trap is normalizing with `is_array($x) ? reset($x) : $x`: `reset([])` returns `false`, which survives a `!== null && !== ''` guard and then casts to `0` — a phantom element ID. Normalize with a falsy-coalescing guard instead:
+
+```php
+$value = $request->getBodyParam('subjectUserId');
+$id = (is_array($value) ? reset($value) : $value) ?: null;   // '' , [] , false → null
+```
+
+### lightswitchField toggle
+
+The `toggle` param shows/hides another element based on the switch state:
+
+```twig
+{{ forms.lightswitchField({
+    label: 'Enable Feature'|t('my-plugin'),
+    id: 'enableFeature',
+    name: 'enableFeature',
+    on: settings.enableFeature,
+    toggle: '#feature-settings',
+}) }}
+
+<div id="feature-settings"{% if not settings.enableFeature %} class="hidden"{% endif %}>
+    {# Additional fields shown only when the switch is on #}
+    {{ forms.textField({ ... }) }}
+</div>
+```
+
+### buttonGroupField
+
+Exclusive button selector — visually similar to a segmented control. One option active at a time. Renders a `Craft.Listbox` with `aria-pressed` on each button. Use for settings with 2-5 discrete options where radio buttons feel too heavy.
+
+```twig
+{{ forms.buttonGroupField({
+    label: 'Display Mode'|t('my-plugin'),
+    id: 'displayMode',
+    name: 'displayMode',
+    value: settings.displayMode,
+    options: {
+        list: 'List'|t('my-plugin'),
+        grid: 'Grid'|t('my-plugin'),
+        map: 'Map'|t('my-plugin'),
+    },
+}) }}
+```
+
+Options can be a flat hash (`{ value: label }`) or an array of objects with `label`, `value`, and optional `class`:
+
+```twig
+{{ forms.buttonGroupField({
+    label: 'Priority'|t('my-plugin'),
+    id: 'priority',
+    name: 'priority',
+    value: settings.priority,
+    options: [
+        { label: 'Low', value: 'low' },
+        { label: 'Normal', value: 'normal' },
+        { label: 'High', value: 'high', class: 'error' },
+    ],
+}) }}
+```
+
+Server-side, the POST value is the selected option's `value` string. The raw variant (`forms.buttonGroup`) renders without the field wrapper — use it inside custom layouts or inline with other inputs.
+
+`buttonGroupField` is for simple exclusive selects (display mode, priority level). It is **not** the right tool for tri-state inheritance controls (off/inherit/on) — its hidden input doesn't distinguish empty (inherit) from explicit values, and the uniform button styling doesn't convey state semantics. For inheritance UI, use the webhook table pattern below.
+
+### Lightswitch vs checkbox
+
+For a single boolean **setting**, reach for `lightswitchField` — not `checkboxField`. The difference is what posts.
+
+`lightswitch.twig` always emits a hidden input alongside the toggle whenever a `name` is set (`lightswitch.twig:53-55`): it posts the on-value when on, and an empty string when off. So a lightswitch behaves like a normal field — it always contributes a value to POST data, and a settings model with `public bool $enableSync` receives `''` (which casts to `false`) rather than the key going missing.
+
+A **raw** single `checkbox` does *not* post when unchecked — an unchecked HTML checkbox sends nothing. `checkbox.twig` compensates for this by emitting a hidden empty input just before the checkbox (`checkbox.twig:35-37`), but only when the `name` is a plain scalar name (not an array `name[]`). If you hand-roll a bare `<input type="checkbox">` without that hidden companion, an unchecked box silently drops the key from POST — the classic "the setting won't turn off" bug.
+
+Rule of thumb:
+
+- **Single boolean setting** → `lightswitchField`. Posts a value in every state via its hidden input.
+- **Multi-select opt-in list** (pick any of N) → `checkboxGroupField`. Each checked box posts into the `values` array; unchecked boxes are simply absent, which is the intended semantics for a set.
+- **Raw single `checkbox`** → only when you understand the hidden-input mechanism and are inside a container (e.g. an editable-table cell) that handles the absent-when-unchecked case.
+
+Extra lightswitch params beyond `on`/`toggle`:
+
+| Param | Purpose |
+|-------|---------|
+| `small` | Renders the compact variant (adds the `small` class). |
+| `onLabel` / `offLabel` | Visible state labels flanking the switch; also drive a visually-hidden description for screen readers. `onLabel` defaults to `label`. |
+
+Verified against `lightswitch.twig:6,10-13,53-55`.
+
+### copytextField
+
+Read-only value with a one-click copy button — use for API keys, tokens, webhook URLs, or any generated value the user copies but never types into.
+
+```twig
+{{ forms.copytextField({
+    label: 'Webhook URL'|t('my-plugin'),
+    id: 'webhookUrl',
+    value: webhookUrl,
+}) }}
+```
+
+`copytext.twig` forces the inner text input to `readonly: true` and appends a `.btn` that selects the field and copies it to the clipboard (`copytext.twig:5-20`). There is no editable variant — it's display-plus-copy only, so don't reach for it when the value should be editable.
+
+### moneyField
+
+Currency input. It ships in core `forms.twig` (`money`/`moneyField`, `forms.twig:201,533`) and registers `MoneyAsset`, but it's primarily Commerce-driven — most non-Commerce settings are better served by a plain `textField` with an `inputmode`. Reach for it when you genuinely need locale-aware currency parsing.
+
+```twig
+{{ forms.moneyField({
+    label: 'Threshold'|t('my-plugin'),
+    name: 'threshold',
+    currency: 'USD',
+    value: settings.threshold,
+}) }}
+```
+
+It posts a nested map — `name[value]` (the amount) and `name[locale]` (the formatting locale) — so read it with `$request->getBodyParam('threshold')['value']` server-side (`money.twig`).
+
+### Buttons
+
+`forms.button` and `forms.submitButton` render a `<button>` via `button.twig`. `submitButton` is sugar: it merges `type: 'submit'` and adds the `submit` class (`forms.twig:14-20`), so you rarely style it yourself.
+
+Useful params (`button.twig:1-9,36-62`):
+
+| Param | Purpose |
+|-------|---------|
+| `label` / `labelHtml` | Button text (plain or raw HTML). |
+| `icon` / `iconHtml` | Leading icon — a Craft icon identifier or raw SVG. |
+| `spinner: true` | Renders an absolutely-positioned spinner inside the button, reserving its space so the button doesn't reflow when it enters a loading state. |
+| `busyMessage` / `successMessage` / `failureMessage` / `retryMessage` | Populate `data-*-message` attributes and, when any is set together with `spinner`, an ARIA live region (`role="status"`) so state changes are announced to screen readers. |
+
+Every button carries the `.btn` base class unconditionally (`button.twig:21`); the modifiers below layer on top.
+
+#### Button modifier classes
+
+Add these to a button's `class` to signal its role (verified against `button.twig` and CP CSS — `.btn.submit`, `.btn.secondary`, `.btn.caution`, `.btn.dashed`):
+
+| Class | Role |
+|-------|------|
+| `.btn` | Neutral base — always present, applied by `button.twig` itself. |
+| `.submit` | Primary action (Save, Create). Applied automatically by `submitButton`. |
+| `.secondary` | Secondary action that sits beside the primary one. |
+| `.caution` | Destructive action (Delete, Reset) — styled with error coloring. |
+| `.dashed` | Add / new affordance — dashed border, transparent background. |
+
+By convention a screen has one primary `.submit` button; additional actions use `.secondary`, `.caution`, or `.dashed` so the primary action stays visually singular. Treat this as a convention for scannability, not a hard rule — a toolbar with several equal-weight actions is a legitimate exception.
+
+### Inner sidebar navigation (`_includes/nav.twig`)
+
+For a secondary nav list inside a CP pane (a settings sub-menu, a filtered index sidebar), Craft ships `_includes/nav.twig`. Its `list` macro takes a flat list of item hashes plus a `selectedItem` key:
+
+```twig
+{% include '_includes/nav.twig' with {
+    label: 'Settings sections'|t('my-plugin'),
+    items: {
+        general: { label: 'General'|t('my-plugin'), url: url('my-plugin/settings/general') },
+        sync: { heading: 'Sync'|t('my-plugin'), nested: {
+            connection: { label: 'Connection'|t('my-plugin'), url: url('my-plugin/settings/connection') },
+            schedule: { label: 'Schedule'|t('my-plugin'), url: url('my-plugin/settings/schedule') },
+        } },
+    },
+    selectedItem: 'general',
+} only %}
+```
+
+Per-item keys (`nav.twig:1-31`):
+
+| Key | Meaning |
+|-----|---------|
+| `label` + `url` | A plain link item. |
+| `heading` + `nested` | A section heading with its own nested list of items (recurses through the same macro). |
+| `selected` | Force an item active regardless of `selectedItem`. |
+
+The active link is the one whose key matches `selectedItem` (or whose own `selected` is truthy). Craft applies the `sel` class and `aria-current="page"` to it (`nav.twig:16,21`) — the exact active-link styling is theme-driven, so rely on the `sel` class rather than any specific color.
+
+## Permissions
+
+For the complete permissions reference (all built-in handles, user groups, Twig/PHP checking, authorization events, strategies), see `permissions.md`. This section covers the CP-specific patterns.
+
+### Registration
+
+```php
+Event::on(UserPermissions::class, UserPermissions::EVENT_REGISTER_PERMISSIONS,
+    function(RegisterUserPermissionsEvent $event) {
+        $event->permissions[] = [
+            'heading' => Craft::t('my-plugin', 'My Plugin'),
+            'permissions' => $this->_buildPermissions(),
+        ];
+    }
+);
+```
+
+### Dynamic Per-Entity Permissions
+
+Scope permissions by entity UID for multi-tenant isolation:
+
+```php
+private function _buildPermissions(): array
+{
+    $permissions = ['my-plugin:settings' => ['label' => Craft::t('my-plugin', 'Manage settings')]];
+    foreach (MyPlugin::$plugin->getItems()->getAllItems() as $item) {
+        $permissions["my-plugin:manage:{$item->uid}"] = [
+            'label' => Craft::t('my-plugin', 'Manage {name}', ['name' => $item->name]),
+            'nested' => ["my-plugin:view:{$item->uid}" => ['label' => Craft::t('my-plugin', 'View entries')]],
+        ];
+    }
+    return $permissions;
+}
+```
+
+Element-level checks (`canView()`, `canSave()`, `canDelete()`) are in `elements.md` under Authorization. Always implement alongside controller-level `requirePermission()` checks. Use `App::env('MY_PLUGIN_API_KEY')` for sensitive data.
+
+## Read-Only Mode (allowAdminChanges)
+
+When `allowAdminChanges` is `false` (production), plugin settings pages should be viewable but not editable. Getting this right requires fixing **all three gates** in a single pass, not patching one and waiting for the next symptom.
+
+### The three-node access path
+
+Every CP plugin/module screen has three gates between the URL and the rendered page. All three must be aligned for read-only access to work:
+
+| Gate | Where | What blocks read-only access |
+|------|-------|------------------------------|
+| **1. CP nav** | `getCpNavItem()` | Subnav entry gated on `allowAdminChanges` hides the link (page still reachable by direct URL) |
+| **2. Controller beforeAction** | `beforeAction()` | `$this->requireAdmin()` gates the whole controller on `allowAdminChanges`, blocking even view actions on production |
+| **3. Action body** | `actionEdit()` etc. | Explicit `allowAdminChanges` throw or `requireAdmin()` inside the action |
+
+When making a screen read-only-accessible, **walk all three gates** before shipping. Don't fix gate 3 and leave gates 1 and 2 blocking.
+
+**Gate the screen by permission, not by admin.** For a plugin's own CP section, who-may-be-on-the-screen is a dedicated permission (`<handle>:manage-settings` — permission handles are kebab-case, never camelCase); `allowAdminChanges` is a separate axis that governs only whether writes succeed. Gating with `requireAdmin()` conflates the two and locks the screen to admins even when a site wants to delegate it to a non-admin group. See `permissions.md` → "Settings and screen access are permission-gated, not admin-gated" for the full rationale; the gates below show the read-only write-axis mechanics that apply on top of the permission gate.
+
+### Gate 1: CP nav (getCpNavItem)
+
+The subnav entry for settings must be visible regardless of `allowAdminChanges`. Gate on permission, not on admin changes:
+
+```php
+public function getCpNavItem(): ?array
+{
+    $item = parent::getCpNavItem();
+    $item['subnav'] = [
+        'dashboard' => ['label' => Craft::t('my-plugin', 'Dashboard'), 'url' => 'my-plugin'],
+        'items' => ['label' => Craft::t('my-plugin', 'Items'), 'url' => 'my-plugin/items'],
+    ];
+
+    // Gate on permission, NOT on allowAdminChanges
+    if (Craft::$app->getUser()->getIdentity()?->can('my-plugin:settings')) {
+        $item['subnav']['settings'] = [
+            'label' => Craft::t('my-plugin', 'Settings'),
+            'url' => 'my-plugin/settings',
+        ];
+    }
+
+    return $item;
+}
+```
+
+Craft does **not** auto-hide subnav entries when `allowAdminChanges` is false. If the settings link vanishes on production, the plugin's own `getCpNavItem()` is gating it. Check there first.
+
+### Gate 2: permission in beforeAction, write-axis per action
+
+Gate *access* with the screen's permission in `beforeAction()` — one call covers both the view (`actionEdit`) and the write (`actionSave`), so access can't drift between them. Then gate *writability* per write action with an explicit `allowAdminChanges` check that fails closed:
+
+```php
+public function beforeAction($action): bool
+{
+    // Who may be on the screen — covers edit AND save.
+    $this->requirePermission(SettingsController::PERMISSION_MANAGE_SETTINGS);
+    return parent::beforeAction($action);
+}
+
+// View action: renders read-only when writes are disabled.
+public function actionEdit(?int $itemId = null): Response
+{
+    $readOnly = !Craft::$app->getConfig()->getGeneral()->allowAdminChanges;
+
+    return $this->renderTemplate('my-plugin/_edit', [
+        'item' => $this->_getItem($itemId),
+        'readOnly' => $readOnly,
+    ]);
+}
+
+// Write action: re-check the write axis server-side, fail closed.
+public function actionSave(): ?Response
+{
+    $this->requirePostRequest();
+    if (!Craft::$app->getConfig()->getGeneral()->allowAdminChanges) {
+        throw new ForbiddenHttpException('Settings are read-only on this environment.');
+    }
+    // ... save logic
+}
+```
+
+Why permission-in-`beforeAction` (not `requireAdmin()`): `requireAdmin()` with no args bundles *is-admin* **and** *`allowAdminChanges` is true*, so putting it in `beforeAction()` blocks every action on production, including the view — and it locks the screen to admins even when the site wants to delegate it (see `permissions.md`). The permission answers "who," the per-action `allowAdminChanges` check answers "may this write happen." If you deliberately keep a screen admin-only (mirroring Craft core's Settings section), use `requireAdmin(false)` in `beforeAction()` for the view and `requireAdmin()` on writes — but for a plugin's own section, prefer the permission.
+
+**Anti-pattern:** dispatching in `beforeAction()` with `in_array($action->id, ['index', 'edit'])` or `str_starts_with($action->id, 'save')` to decide the write gate. It's brittle — a future write action with a non-`save*` name slips through. Keep the *access* gate in `beforeAction()` and the *write* gate explicit in each write action.
+
+### Gate 3: Template patterns
+
+Pass `readOnly` to the template and use it to disable inputs and hide save buttons:
+
+```twig
+{% set readOnly = readOnly ?? false %}
+
+{% set fullPageForm = not readOnly %}
+
+{% block content %}
+    {# Text field #}
+    {{ forms.textField({
+        label: 'Name'|t('my-plugin'),
+        name: 'name',
+        value: item.name,
+        errors: item.getErrors('name'),
+        disabled: readOnly,
+        readonly: readOnly,
+    }) }}
+
+    {# Lightswitch #}
+    {{ forms.lightswitchField({
+        label: 'Enabled'|t('my-plugin'),
+        name: 'enabled',
+        on: item.enabled,
+        disabled: readOnly,
+    }) }}
+
+    {# Editable table: static fallback in read-only mode #}
+    {% if readOnly %}
+        <table class="data fullwidth">
+            <thead>
+                <tr>
+                    <th>{{ 'Site'|t('my-plugin') }}</th>
+                    <th>{{ 'URI Format'|t('my-plugin') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in item.siteSettings %}
+                    <tr>
+                        <td>{{ row.site.name }}</td>
+                        <td><code>{{ row.uriFormat }}</code></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        {{ forms.editableTableField({
+            label: 'Site Settings'|t('my-plugin'),
+            name: 'siteSettings',
+            cols: siteSettingsCols,
+            rows: siteSettingsRows,
+        }) }}
+    {% endif %}
+
+    {# Element select #}
+    {{ forms.elementSelectField({
+        label: 'Related Entries'|t('my-plugin'),
+        name: 'relatedEntries',
+        elements: relatedEntries,
+        elementType: 'craft\\elements\\Entry',
+        disabled: readOnly,
+    }) }}
+{% endblock %}
+```
+
+### Key template techniques
+
+| Technique | Purpose |
+|-----------|---------|
+| `{% set fullPageForm = not readOnly %}` | Hides the save button and form wrapper in read-only mode |
+| `disabled: readOnly` on form fields | Grays out inputs and prevents interaction |
+| `readonly: readOnly` on text inputs | Prevents editing but allows text selection |
+| Static HTML table fallback | Replaces editable tables with a plain display |
+| `{% if not readOnly %}` around action buttons | Hides delete, reorder, and add buttons |
+
+### Read-only notice
+
+Show a notice at the top of the page so admins understand why they can't edit. Craft ships a helper for exactly this: the CP Twig function `readOnlyNotice()` (registered in `craft\web\twig\CpExtension`, backed by `Cp::readOnlyNoticeHtml()`), consumed via the `contentNotice` variable that `_layouts/cp` renders in the pane header. This is what core's own settings screens do (e.g. `src/templates/settings/plugins/_settings.twig`):
+
+```twig
+{% if readOnly %}
+    {% set contentNotice = readOnlyNotice() %}
+{% endif %}
+```
+
+Use this instead of hand-rolling a blockquote — it renders Craft's standard styled notice and stays consistent with the native settings screens. `contentNotice` accepts any HTML, so a custom message is still possible when the standard wording doesn't fit.
+
+### Verification
+
+After implementing read-only mode, verify it actually works. In `.env`, set `CRAFT_ALLOW_ADMIN_CHANGES=false`, then:
+
+1. Check the CP nav: is the settings link still visible?
+2. Visit the settings URL directly: does it render without 403?
+3. Confirm fields are disabled and the save button is hidden.
+4. Try submitting via direct POST: does the write action reject it?
+
+Set `CRAFT_ALLOW_ADMIN_CHANGES=true` to restore normal mode after testing.

@@ -1,0 +1,12 @@
+{
+  "name": "google-drive-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "googleapis": "^144.0.0",
+    "mammoth": "^1.8.0",
+    "xlsx": "^0.18.5",
+    "pdf-parse": "^1.1.1"
+  }
+}

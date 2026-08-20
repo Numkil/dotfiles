@@ -1,0 +1,34 @@
+# PI Configuration .gitignore
+
+# Node modules (installed by pi install)
+**/node_modules/
+
+# Local PI state (do not sync)
+**/sessions/
+**/tmp/
+**/npm/
+**/git/
+**/auth.json
+**/trust.json
+**/models-store.json
+
+# PI cache
+**/cache/
+
+# Logs
+*.log
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local

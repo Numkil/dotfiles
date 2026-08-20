@@ -68,11 +68,20 @@ export default function (pi: ExtensionAPI) {
           join(globalSkillsDir, "craft-project-setup"),
           join(globalSkillsDir, "craft-site"),
           join(globalSkillsDir, "craft-twig-guidelines"),
-          join(globalSkillsDir, "craftcms"),
+          join(globalSkillsDir, "ddev"),
         ],
       };
     }
     
+    return {};
+  });
+
+  pi.on("before_agent_start", (event, ctx) => {
+    if (isCraftProject(ctx.cwd)) {
+      return {
+        systemPrompt: `This is a Craft CMS project. Immediately load the craftcms skill at the start of any task. For template work, also load craft-site and craft-twig-guidelines. For PHP work, also load craft-php-guidelines. For local development commands, also load ddev. ${event.systemPrompt}`,
+      };
+    }
     return {};
   });
 }
