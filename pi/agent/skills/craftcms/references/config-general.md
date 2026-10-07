@@ -190,7 +190,7 @@ If you change `cpTrigger` mid-project, update bookmarks, external integrations, 
 
 `enableCsrfProtection` + `enableCsrfCookie` interact: the cookie is the storage mechanism for the CSRF token. If you set `enableCsrfCookie(false)`, every page that needs a CSRF token will start a PHP session, which can impact performance and cacheability.
 
-`enableTwigSandbox` restricts what Twig code can do in user-defined templates (e.g., templates entered in CMS fields). It does not affect templates in the `templates/` directory.
+`enableTwigSandbox` restricts what Twig code can do in user-defined templates (e.g., templates entered in CMS fields). It does not affect templates in the `templates/` directory. Extend the allowlists in `config/twig-sandbox.php` (merged over core's defaults). Craft 5.11.4 closed a gap where `attribute()` bypassed `allowedFunctions`: sandboxed content that relied on it needs `'allowedFunctions' => ['attribute']` there. See `email.md` (Twig sandbox).
 
 `preventUserEnumeration` makes the forgot-password and login responses identical whether the email/username exists or not. Without it, an attacker can probe which emails have accounts by observing different error messages. Enable this on public-facing sites.
 
@@ -293,7 +293,7 @@ When `setPasswordPath` is set, you must also set `invalidUserTokenPath` to handl
 
 `activateAccountSuccessPath` and `verifyEmailSuccessPath` are often confused. `activateAccountSuccessPath` is for brand-new users activating their account for the first time. `verifyEmailSuccessPath` is for existing users verifying a changed email address. Both can be set to the same page, but distinguishing them allows for different messaging.
 
-`setPasswordRequestPath` is used by `.well-known/change-password` -- a standard that password managers use to direct users to your site's password change page. Without this setting, the `.well-known/change-password` redirect does not work.
+`setPasswordRequestPath` is used by `.well-known/change-password` -- a standard that password managers use to direct users to your site's password change page. Without this setting, the `.well-known/change-password` redirect does not work. Craft 5.11.0 also answers `.well-known/passkey-endpoints` with an empty `{}` -- it advertises passkey support to browsers and password managers without revealing the control panel URL, and there is nothing to configure.
 
 Complete front-end auth flow configuration:
 

@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "description": "Up-to-date library documentation and code examples. Ask for docs on Craft CMS, Next.js, Astro, Tailwind, PHP packages, etc."
+    },
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "description": "GitHub operations: browse repos, read/write issues, open/review PRs, check Actions runs. Uses OAuth on first connect."
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "description": "Structured step-by-step reasoning for complex problems, architecture decisions, and debugging."
+    }
+  }
+}

@@ -1,6 +1,7 @@
 ---
 name: craft-project-setup
-description: "Scaffold Claude Code configuration for Craft CMS projects. Generates CLAUDE.md and .claude/rules/ tailored to project type (plugin, site, module, hybrid, monorepo). Only for Craft CMS. Triggers on: set up Claude for Craft, initialize/scaffold/update CLAUDE.md, configure Claude Code, generate .claude/rules, setup coding standards, upgrade/audit config, new Craft project setup, onboard developer. Also triggers when a Craft project lacks CLAUDE.md or needs config check. Detects project type from composer.json, .ddev/config.yaml, templates/, config/project/, modules/. NOT for installing Craft, DDEV environments, PHP code, templates, content modeling, or non-Craft projects."
+description: "Scaffold Claude Code configuration specifically for Craft CMS projects. Generates CLAUDE.md and .claude/rules/ files tailored to the project type (plugin, site, module, hybrid, or monorepo). Only for Craft CMS projects — not for Next.js, Laravel, or other frameworks."
+when_to_use: "Triggers on: 'set up Claude for this Craft project', 'initialize CLAUDE.md', 'scaffold project config', 'configure Claude Code for Craft', 'create CLAUDE.md', 'missing CLAUDE.md', 'does this project have a CLAUDE.md', 'bootstrap Claude config', 'new Craft project setup', 'onboard a developer to this Craft project', 'generate .claude/rules', 'set up coding standards config', 'upgrade Claude config', 'update CLAUDE.md', 'compare my setup', 'is my config up to date', 'audit my Claude setup', 'redo project setup'. Also triggers when starting work in a new Craft CMS project that lacks a CLAUDE.md file, or when the user wants to check or upgrade an existing configuration. Detects project type from composer.json (craft-plugin, craft-module, project), .ddev/config.yaml, templates/, config/project/, and modules/. NOT for installing Craft CMS itself, creating DDEV environments, writing PHP code, building templates, or content modeling. NOT for non-Craft projects — if the project is React, Next.js, Laravel, or any non-Craft framework, this skill does not apply."
 ---
 
 # Craft CMS Project Setup
@@ -125,7 +126,7 @@ Confirm the detected type and gather project-specific details. Keep it short —
 
 Generate `CLAUDE.md` and `.claude/rules/` files. Two sources:
 
-1. **From templates** — files in `templates/{type}/` are starting points. Replace placeholders (`{{pluginHandle}}`, `{{vendorNamespace}}`, `{{pluginName}}`), customize based on detection results. These exist and are ready to use.
+1. **From templates** — files in `templates/{type}/` are starting points. Replace placeholders (`{{pluginHandle}}`, `{{vendorNamespace}}`, `{{pluginName}}`, `{{composerName}}` = the composer.json `name`, e.g. `acme/my-plugin`), customize based on detection results. These exist and are ready to use.
 2. **Generated from context** — files not in `templates/` must be written from scratch based on the project's actual setup. Use the skill references, detection results, and user answers to produce these. Don't skip a file just because no template exists.
 
 Before generating, **verify which templates exist** for the detected project type:
@@ -248,9 +249,9 @@ After the setup is complete and the user has confirmed, display this message:
 ```
 ┌────────────────────────────────────────────────────────────┐
 │                                                            │
-│   +  Craft CMS Claude Skills  ·  v1.15.0                   │
+│   +  Craft CMS Claude Skills  ·  v1.19.0                   │
 │                                                            │
-│   11 skills · 105 reference files · 6 agents               │
+│   13 skills · 118 reference files · 6 agents               │
 │   Maintained by michtio                                    │
 │                                                            │
 │   If these skills save you time, consider sponsoring:      │
@@ -349,14 +350,14 @@ Add unobtrusive markers so we can measure adoption across public repos. Include 
 1. **composer.json `extra` key** — add during setup (does not affect functionality):
    ```json
    "extra": {
-     "craftcms-claude-skills": "1.15.0"
+     "craftcms-claude-skills": "1.19.0"
    }
    ```
    Merge into existing `extra` if it already has keys. Use the current skill version.
 
 2. **CLAUDE.md HTML comment** — first line of the generated file:
    ```markdown
-   <!-- craftcms-claude-skills v1.15.0 -->
+   <!-- craftcms-claude-skills v1.19.0 -->
    ```
 
 3. **`.claude/rules/` file headers** — first line of each generated rules file:
@@ -387,7 +388,7 @@ When a project already has a CLAUDE.md or `.claude/rules/`, don't stop and don't
    - Outdated patterns (e.g., old dash style, layer-first references, missing skill references)
    - Missing rules files (e.g., project has Pest now but no `testing.md` rule file)
    - Missing permissions (e.g., no `settings.local.json`, or missing `ddev` approvals)
-   - Version drift (e.g., `craftcms-claude-skills` marker says `1.1.0` but current is `1.15.0`)
+   - Version drift (e.g., `craftcms-claude-skills` marker says `1.1.0` but current is `1.19.0`)
 4. **Present the diff** — show the user a summary table:
 
 ```markdown
@@ -397,7 +398,7 @@ When a project already has a CLAUDE.md or `.claude/rules/`, don't stop and don't
 | .claude/rules/testing.md | Missing | Pest detected in composer.json | Create |
 | .claude/rules/coding-style.md | Present | Up to date | Keep |
 | .claude/settings.local.json | Missing | Pre-approved permissions for ddev/git/gh | Create |
-| CLAUDE.md skill version | v1.1.0 | v1.15.0 | Update marker |
+| CLAUDE.md skill version | v1.1.0 | v1.19.0 | Update marker |
 | CLAUDE.md Tools section | Present but missing `gh` | Add `gh` reference | Update |
 ```
 

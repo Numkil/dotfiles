@@ -1,12 +1,16 @@
 {
-  "lastChangelogVersion": "0.84.2",
+  "lastChangelogVersion": "1.0.4",
   "defaultProvider": "mistral",
-  "defaultModel": "mistral-medium-3.5",
+  "defaultModel": "mistral-large-4",
   "theme": "gruvbox-material-light",
   "defaultThinkingLevel": "high",
   "hideThinkingBlock": false,
   "externalEditor": "nvim",
   "defaultProjectTrust": "always",
+  "quietStartup": true,
+  "enableInstallTelemetry": false,
+  "defaultTools": ["+codemode"],
+  "cacheWarming": "idle",
   "markdown": {
     "mermaid": "streaming"
   },

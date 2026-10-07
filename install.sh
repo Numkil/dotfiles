@@ -15,8 +15,20 @@ rm -rf ~/.config/wezterm && cp -rf ./wezterm ~/.config/wezterm
 rm -rf ~/.config/ripgrep && cp -rf ./ripgrep ~/.config/ripgrep
 rm -rf ~/.config/nvim && cp -rf ./nvim ~/.config/nvim
 rm -rf ~/.config/ghostty && cp -rf ./ghostty ~/.config/ghostty
-rm -rf ~/.pi/agent/skills && cp -rf ./pi/agent/skills ~/.pi/agent/skills
+# PI: use rsync to merge skills (don't wipe skills installed via npx/pi packages)
+mkdir -p ~/.pi/agent/skills
+if command -v rsync &> /dev/null; then
+    rsync -a ./pi/agent/skills/ ~/.pi/agent/skills/
+else
+    cp -rf ./pi/agent/skills/. ~/.pi/agent/skills/ 2>/dev/null || true
+fi
 cp -f ./pi/agent/APPEND_SYSTEM.md ~/.pi/agent/APPEND_SYSTEM.md
+cp -f ./pi/agent/AGENTS.md ~/.pi/agent/AGENTS.md 2>/dev/null || true
+cp -f ./pi/agent/settings.json ~/.pi/agent/settings.json 2>/dev/null || true
+cp -f ./pi/agent/mcp.json ~/.pi/agent/mcp.json 2>/dev/null || true
+cp -f ./pi/agent/hermes-memory-config.json ~/.pi/agent/hermes-memory-config.json 2>/dev/null || true
+mkdir -p ~/.pi/agent/extensions && cp -f ./pi/agent/extensions/*.ts ~/.pi/agent/extensions/ 2>/dev/null || true
+mkdir -p ~/.pi/agent/agents && cp -f ./pi/agent/agents/*.md ~/.pi/agent/agents/ 2>/dev/null || true
 mkdir -p ~/.pi/agent/themes && cp -f ./pi/agent/themes/gruvbox-material.json ~/.pi/agent/themes/gruvbox-material.json
 mkdir -p ~/.pi/agent/themes && cp -f ./pi/agent/themes/gruvbox-material-light.json ~/.pi/agent/themes/gruvbox-material-light.json
 

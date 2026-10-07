@@ -83,6 +83,39 @@ install_settings() {
 }
 
 # ============================================================================
+# Install MCP Config
+# ============================================================================
+install_mcp() {
+    info "Installing MCP configuration..."
+    
+    local mcp_file="${PI_AGENT_DIR}/mcp.json"
+    
+    if [ -f "${SCRIPT_DIR}/mcp.json" ]; then
+        cp "${SCRIPT_DIR}/mcp.json" "${mcp_file}"
+        success "Copied mcp.json to ${mcp_file}"
+        info "Note: GitHub MCP requires OAuth sign-in. Run: pi mcp login github"
+    else
+        warning "No mcp.json found in ${SCRIPT_DIR}/"
+    fi
+}
+
+# ============================================================================
+# Install Hermes Memory Config
+# ============================================================================
+install_hermes_config() {
+    info "Installing Hermes memory configuration..."
+    
+    local config_file="${PI_AGENT_DIR}/hermes-memory-config.json"
+    
+    if [ -f "${SCRIPT_DIR}/hermes-memory-config.json" ]; then
+        cp "${SCRIPT_DIR}/hermes-memory-config.json" "${config_file}"
+        success "Copied hermes-memory-config.json to ${config_file}"
+    else
+        warning "No hermes-memory-config.json found in ${SCRIPT_DIR}/"
+    fi
+}
+
+# ============================================================================
 # Install NPM Packages
 # ============================================================================
 install_packages() {
@@ -217,6 +250,27 @@ install_skills() {
 }
 
 # ============================================================================
+# Install Agents
+# ============================================================================
+install_agents() {
+    info "Installing agents..."
+    
+    local agents_dir="${SCRIPT_DIR}/agents"
+    local pi_agents_dir="${PI_AGENT_DIR}/agents"
+    
+    # Create agents directory if it doesn't exist
+    mkdir -p "${pi_agents_dir}"
+    
+    # Copy agents if they exist
+    if [ -d "$agents_dir" ] && [ "$(ls -A "$agents_dir")" ]; then
+        cp -f "${agents_dir}/"*.md "${pi_agents_dir}/" 2>/dev/null || true
+        success "Copied agents from ${agents_dir}/ to ${pi_agents_dir}/"
+    else
+        warning "No agents found in ${agents_dir}/"
+    fi
+}
+
+# ============================================================================
 # Main Installation
 # ============================================================================
 
@@ -239,6 +293,14 @@ main() {
     install_settings
     echo ""
     
+    # Step 2a: Install MCP config
+    install_mcp
+    echo ""
+    
+    # Step 2a2: Install Hermes memory config
+    install_hermes_config
+    echo ""
+    
     # Step 2b: Install context files
     install_context_files
     echo ""
@@ -253,6 +315,10 @@ main() {
     
     # Step 4: Install skills
     install_skills
+    echo ""
+    
+    # Step 4b: Install agents
+    install_agents
     echo ""
     
     # Step 5: Install themes

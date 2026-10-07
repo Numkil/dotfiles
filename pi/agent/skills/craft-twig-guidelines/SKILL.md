@@ -1,6 +1,7 @@
 ---
 name: craft-twig-guidelines
-description: "Twig coding standards for Craft CMS 5 templates. ALWAYS load when writing, editing, or reviewing .twig files. Covers: camelCase variable naming, ?? and ??? null handling, whitespace control ({%- trimming), include isolation with 'only', Craft helpers ({% tag %}, tag(), attr(), |attr, |parseAttr, |append, svg()), collect() for props and classes, .implode(), comment headers. Triggers on: .twig files, {% include ... only %}, {% tag %}, collect(), props.get(), attr(), svg(), ??/??? coalescing, whitespace control, file headers, currentSite, siteUrl, craft.entries, .eagerly(), .collect, |e('js') escaping. NOT for architecture (craft-site), PHP (craft-php-guidelines), or content modeling (craft-content-modeling)."
+description: "Twig coding standards and conventions for Craft CMS 5 templates. ALWAYS load this skill when writing, editing, or reviewing any .twig file in a Craft CMS project — even for small edits. Covers: variable naming (camelCase, no abbreviations), null handling (?? operator, ??? with empty-coalesce plugin), whitespace control ({%- trimming, NOT {%- minify -%}), include isolation (always use 'only'), Craft Twig helpers ({% tag %}, tag(), attr(), |attr filter, |parseAttr, |append, svg()), collect() for props and class collections, .implode(), comment headers with ========= separators on component files, and common pitfalls (snake_case, macros as components, hardcoded colors)."
+when_to_use: "Triggers on: Twig template creation, editing, or review; .twig files; {% include %} with 'only'; {% tag %} and polymorphic elements; collect() and props.get(); class string building; attr() and |attr filter; svg() with styling and aria; ?? and ??? null coalescing; whitespace control and blank lines in output; minify alternatives; Twig file headers and comment blocks; variable naming conventions in Twig; currentSite, siteUrl, craft.entries, .eagerly(), .collect in template context; |e('js') aggressive escaping (spaces become \\uXXXX), js escaper, grepping escaped translated strings. NOT for Twig architecture patterns, atomic design structure, or template routing (use craft-site). NOT for PHP code (use craft-php-guidelines). NOT for content modeling or field configuration (use craft-content-modeling)."
 ---
 
 # Twig Coding Standards — Craft CMS 5
@@ -261,6 +262,23 @@ For adding content to an element string:
 
 Combine with `|attr` for classes and aria attributes. Use `|append` for
 accessible labels inside the SVG.
+
+### `url()` with `false` Params (Craft 5.11+)
+
+Passing `false` as the second argument strips every query-string param from
+an absolute URL. Canonical links, share URLs, and "clear filters" links:
+
+```twig
+<link rel="canonical" href="{{ url(craft.app.request.absoluteUrl, false) }}">
+<a href="{{ url(craft.app.request.absoluteUrl, false) }}">Clear filters</a>
+```
+
+An array still merges params in; `false` removes them all. The stripping
+only applies when the passed-in URL is absolute, so feed it a full URL, not a
+path. PHP has the same call as `UrlHelper::url($url, false)`, plus
+`UrlHelper::removeParams($url, [...])` and `UrlHelper::removeAllParams($url)`
+for finer control. Before 5.11, rebuild the clean URL with
+`siteUrl(craft.app.request.pathInfo)` instead.
 
 ### `heading()` / `h()` / `h1()`…`h6()` — Programmatic Headings (Craft 5.10+)
 

@@ -12,6 +12,10 @@ export PATH="$HOME/.composer/vendor/bin:$PATH"
 # Register rust binaries on path
 export PATH="$HOME/.cargo/bin:$PATH"
 
+# Pi: skip network calls on startup for faster launch
+export PI_SKIP_VERSION_CHECK=1
+export PI_OFFLINE=1
+
 # Determine correct bash completion script and set some OS specific settings
 if [[ "${OSTYPE}" == 'darwin'* ]]; then
     # Register brew on path

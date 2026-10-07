@@ -5,8 +5,8 @@ Cloud replaces local asset filesystems and Craft's native image transformer with
 ## Documentation
 
 - Assets reference: https://craftcms.com/docs/cloud/assets
-- Cloud filesystem source: https://github.com/craftcms/cloud-extension-yii2/blob/main/src/fs/AssetsFs.php
-- Image transformer source: https://github.com/craftcms/cloud-extension-yii2/tree/main/src/imagetransforms
+- Cloud filesystem source: https://github.com/craftcms/cloud/blob/3.x/src/fs/AssetsFs.php
+- Image transformer source: https://github.com/craftcms/cloud/tree/3.x/src/imagetransforms
 
 ## Common Pitfalls
 
@@ -63,7 +63,7 @@ Sources exceeding these limits won't transform — Craft will fall back to the o
 
 ## Migrating assets from a self-hosted site
 
-The supported tool is the AWS S3 CLI's `sync` command. Cloud's bucket address comes from the project and environment UUIDs (visible in Console).
+The supported tool is the AWS S3 CLI's `sync` command. Cloud's bucket address comes from the project and environment UUIDs (visible in Console). All environments in a project **share one bucket**, separated only by these per-environment UUID top-level directories — so getting the environment UUID right is what keeps a staging sync from landing in production's asset tree.
 
 ```sh
 # Push local files into the Cloud bucket

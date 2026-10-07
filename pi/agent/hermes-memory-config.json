@@ -1,0 +1,5 @@
+{
+  "lazyInitialization": true,
+  "sessionRetentionDays": 30,
+  "quickCheckOnOpen": false
+}

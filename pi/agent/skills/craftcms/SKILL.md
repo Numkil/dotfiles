@@ -1,6 +1,7 @@
 ---
 name: craftcms
-description: "Craft CMS 5 plugin and module development — extending Craft with PHP. Covers elements, element queries, services, models, records, controllers, migrations, queue jobs, console commands, field types, native fields, events, behaviors, Twig extensions, widgets, filesystems, permissions, project config, GraphQL, testing, debugging. Triggers on: beforePrepare()/afterSave()/defineSources()/defineTableAttributes()/attributeHtml(), MemoizableArray, BaseNativeField, EVENT_*/DEFINE_*/BEFORE_*/AFTER_*, CraftVariable, custom elements/fields, webhooks, API endpoints, queue/batch jobs, CP sections, widgets, permissions, requirePermission vs requireAdmin, kebab-case handles, allowAdminChanges, defineRules, elevated sessions, project-config/apply, drafts/revisions, sidebar/toolbar, VueAdminTable, GeneralConfig, site management, element query issues. Always use for Craft plugin/module PHP. For plugin-specific work also load craft-plugins. NOT for front-end Twig (craft-site) or content modeling (craft-content-modeling)."
+description: "Craft CMS 5 plugin and module development — extending Craft with PHP. Covers elements, element queries, services, models, records, controllers, migrations, queue jobs, console commands, field types, native fields, events, behaviors, Twig extensions, widgets, filesystems, permissions, project config, GraphQL, testing, and debugging."
+when_to_use: "Triggers on: beforePrepare()/afterSave()/defineSources()/defineTableAttributes()/attributeHtml(), MemoizableArray, BaseNativeField, EVENT_REGISTER_*/DEFINE_*/BEFORE_*/AFTER_*, CraftVariable, custom element or field type (normalizeValue/serializeValue/inputHtml), webhook, API endpoint, queue/batch job, CP section, dashboard widget, utility page, element action/exporter/condition, registerUserPermissions, requirePermission vs requireAdmin, kebab-case permission handles, allowAdminChanges, canView/canSave/canDelete, defineRules, elevated session, project-config/apply, drafts/revisions, element edit sidebar (EVENT_DEFINE_SIDEBAR_HTML) + toolbar buttons, metaFieldsHtml, VueAdminTable, GeneralConfig, getIsMultiSite/refreshSites stale after creating a site, deleteSite phantom sites, element query stops filtering by siteId, naive UTC datetime columns and strtotime drift, element-query ['like'] tuple matches nothing, configWarning config-file overrides. Always use when writing, editing, or reviewing Craft plugin/module PHP — even when no API is named. Plugin-specific work: also load craft-plugins. Do NOT trigger for front-end Twig (craft-site) or content modeling (craft-content-modeling)."
 ---
 
 # Craft CMS 5 — Extending (Plugins & Modules)
@@ -74,6 +75,7 @@ Read the relevant reference file(s) for your task. Multiple files often apply to
 - "My element query with ['like', ...] returns nothing" → read `architecture.md` (Element-query param setters don't take Yii operator tuples)
 - "Match elements by title/slug prefix" → read `architecture.md` (Element-query param setters don't take Yii operator tuples)
 - "Configure Redis for caching and sessions" → read `config-app.md`
+- "Store PHP sessions in the database (load balancer, no Redis)" → read `config-app.md` (Session Component — `craft\web\DbSession`, `setup/php-session-table`)
 - "Set up environment variables for production" → read `config-bootstrap.md`
 - "Find a GeneralConfig setting" → read `config-general.md`
 - "Read a config value in plugin code (App::env, parseEnv, GeneralConfig)" → read `config-bootstrap.md` + `config-general.md`
@@ -84,6 +86,7 @@ Read the relevant reference file(s) for your task. Multiple files often apply to
 - "Set up custom URL routes" → read `config-bootstrap.md`
 - "Configure search to find short words" → read `config-app.md`
 - "Set up GraphQL tokens and schemas" → read `graphql.md` + `config-general.md`
+- "GraphQL `author`/`uploader` fields disappeared after upgrading to Craft 5.11" → read `graphql.md` (Craft 5.11 Additions — "Query for users" scope)
 - "Set up caching for a high-traffic site" → read `caching.md`
 - "Register custom permissions for my plugin" → read `permissions.md`
 - "Check user permissions in templates" → read `permissions.md`
