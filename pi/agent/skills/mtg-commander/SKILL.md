@@ -1,6 +1,6 @@
 ---
 name: mtg-commander
-description: "Magic: The Gathering format assistant for Commander/EDH and Pauper. Use when the user asks about MTG Commander or Pauper rules, card lookups, deck building, card interactions, deck analysis, or anything related to these formats. Can look up cards via Scryfall, fetch decklists from Archidekt, and validate decks against format rules."
+description: "Magic: The Gathering format assistant for Commander/EDH (including cEDH) and Pauper. Use when the user asks about MTG Commander or Pauper rules, card lookups, deck building, card interactions, deck analysis, cEDH meta/tournament research, or anything related to these formats. Can look up cards via Scryfall, fetch decklists from Archidekt and Moxfield, scrape EDHTop16 tournament lists, and validate decks against format rules."
 ---
 
 # MTG Commander Skill
@@ -14,6 +14,25 @@ Before answering any Commander question, read the [Commander rules reference](re
 For Pauper questions, see the [Pauper Format](#pauper-format) section below — the rules differ significantly from Commander.
 
 For Scryfall search syntax, see the [Scryfall syntax reference](references/scryfall-syntax.md).
+
+For **cEDH** work (competitive lists, Moxfield decks, tournament data, meta comparisons), read the [cEDH reference](references/cedh.md) first. It covers how to reach Moxfield and EDHTop16, the analysis patterns that worked, the user's cEDH deckbuilding principles, and verified rules interactions.
+
+## cEDH Research
+
+cEDH lists usually live on **Moxfield**, and results on **EDHTop16**. Neither has a usable public API from curl:
+
+- **Moxfield:** fetch `api2.moxfield.com/v3/decks/all/<id>` from inside a moxfield.com tab via the Chrome extension. Read private decks from the rendered page. Edit decks only through Bulk Edit (`1 Card Name (SET) 123 #Tag`) and only when the user asks.
+- **EDHTop16:** scrape tournament decklists with the bundled script:
+
+```bash
+# All recent tournament lists for a commander (max 48 per commander, 16+ player events)
+python3 -I ./scripts/edhtop16-lists.py "Tasigur, the Golden Fang" --period ONE_YEAR --out lists.json
+
+# Partner pairs use " / "
+python3 -I ./scripts/edhtop16-lists.py "Thrasios, Triton Hero / Tymna the Weaver" --out pairs.json
+```
+
+The output has the player, standing, event size, date and card list per entry. Deduplicate by player (keep the latest list) before counting card frequencies. See `references/cedh.md` for the full workflow.
 
 ## Pauper Format
 
