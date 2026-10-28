@@ -28,6 +28,8 @@
     "npm:pi-hermes-memory@0.9.11",
     "npm:@narumitw/pi-lsp@0.49.10",
     "npm:pi-subagents@0.83.1",
-    "npm:@narumitw/pi-goal@0.54.13"
+    "npm:@narumitw/pi-goal@0.54.13",
+    "npm:pi-intercom@0.18.1",
+    "npm:@signalridge/pi-statusline@1.5.2"
   ]
 }

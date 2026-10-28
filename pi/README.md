@@ -18,7 +18,6 @@ pi/
 │   │   ├── capability-reminder.ts   # Shows contextual reminders for available tools
 │   │   ├── command-permissions.ts   # Blocks dangerous bash commands
 │   │   ├── craft-skills-auto-load.ts # Auto-loads Craft CMS skills
-│   │   ├── minimal-footer.ts        # Clean, minimal status footer
 │   │   ├── summarize.ts             # Conversation summarization
 │   │   └── whimsical.ts             # Fun working messages
 │   ├── agents/             # Sub-agent definitions
@@ -75,6 +74,8 @@ installed/updated automatically by `install.sh`:
 | `pi-web-access` | Web search, URL fetching, GitHub cloning, PDF extraction |
 | `pi-vision-handoff` | Vision capabilities for image understanding |
 | `pi-agent-browser-native` | Browser automation as a native tool |
+| `pi-intercom` | 1:1 messaging between Pi sessions on the same machine |
+| `@signalridge/pi-statusline` | Theme-native status footer (replaces the old custom minimal-footer extension) |
 
 ### Caveman Extension
 The caveman-auto-activate extension automatically enables caveman mode on session start for token optimization, making responses shorter and reducing API costs. The Caveman skill is installed separately via `npx skills add JuliusBrussee/caveman` (handled by the install script).
@@ -128,12 +129,6 @@ Automatically loads Craft CMS-related skills when working in a Craft project:
 - craft-site
 - craft-twig-guidelines
 - ddev
-
-### minimal-footer.ts
-Provides a clean, minimal footer showing:
-- Current directory and git branch
-- Active model and thinking level
-- Context window usage with color-coded progress bar
 
 ### summarize.ts
 Adds `/summarize` command to generate conversation summaries and `summarize_conversation` tool for LLM use.
@@ -314,7 +309,6 @@ for editor validation and completion.
 | capability-reminder | Contextual tool reminders | Automatic |
 | command-permissions | Dangerous command blocking | Bash commands |
 | craft-skills-auto-load | Auto-load Craft skills | Craft projects |
-| minimal-footer | Clean status footer | Always |
 | summarize | Conversation summary | `/summarize` |
 | whimsical | Fun working messages | Thinking |
 
