@@ -1,23 +1,40 @@
 # PI Coding Agent Configuration
 
-This directory contains your PI coding agent configuration, including extensions, settings, and skills.
+This directory contains your PI coding agent configuration. `pi/agent/` is the single
+source of truth — the root `install.sh` copies it to `~/.pi/agent/`.
 
 ## 📁 Structure
 
 ```
 pi/
-├── extensions/          # Custom TypeScript extensions
-│   ├── caveman-auto-activate.ts # Auto-activates caveman mode for token optimization
-│   ├── capability-reminder.ts    # Shows contextual reminders for available tools
-│   ├── command-permissions.ts   # Blocks dangerous bash commands
-│   ├── craft-skills-auto-load.ts # Auto-loads Craft CMS skills
-│   ├── minimal-footer.ts         # Clean, minimal status footer
-│   ├── summarize.ts              # Conversation summarization
-│   └── whimsical.ts              # Fun working messages
-├── settings.json        # PI settings (models, themes, packages)
-├── install.sh          # Installation script for new environments
-└── README.md            # This file
+├── agent/                  # Mirrors ~/.pi/agent/ — the canonical config
+│   ├── AGENTS.md           # Global instructions (stack, workflow preferences)
+│   ├── APPEND_SYSTEM.md    # Appended system prompt (behavioral rules)
+│   ├── settings.json       # PI settings (model, theme, packages, compaction)
+│   ├── mcp.json            # MCP servers (context7, github, sequential-thinking)
+│   ├── hermes-memory-config.json  # Persistent memory configuration
+│   ├── extensions/         # Custom TypeScript extensions
+│   │   ├── caveman-auto-activate.ts # Auto-activates caveman mode for token optimization
+│   │   ├── capability-reminder.ts   # Shows contextual reminders for available tools
+│   │   ├── command-permissions.ts   # Blocks dangerous bash commands
+│   │   ├── craft-skills-auto-load.ts # Auto-loads Craft CMS skills
+│   │   ├── minimal-footer.ts        # Clean, minimal status footer
+│   │   ├── summarize.ts             # Conversation summarization
+│   │   └── whimsical.ts             # Fun working messages
+│   ├── agents/             # Sub-agent definitions
+│   │   ├── craft-planner.md          # Breaks large Craft work into implementation steps
+│   │   ├── craft-feature-builder.md  # Implements one feature from a plan
+│   │   ├── craft-site-builder.md     # Builds Craft front-end templates/components
+│   │   ├── craft-code-reviewer.md    # Everyday diff review
+│   │   ├── craft-code-reviewer-deep.md # Deep review for release branches
+│   │   └── craft-debugger.md         # Debugs Craft CMS issues
+│   ├── skills/             # Skill library (Craft CMS, ddev, hosting, tools)
+│   └── themes/             # Custom themes (gruvbox-material, gruvbox-material-light)
+└── README.md               # This file
 ```
+
+Machine-specific state (`trust.json`, `skills-lock.json`, `auth.json`, sessions, npm
+installs) is gitignored — see `.gitignore`.
 
 ## 🚀 Quick Setup
 
@@ -25,21 +42,19 @@ To set up PI on a new machine with your configuration:
 
 ### 1. Clone your dotfiles
 ```bash
-# Clone your dotfiles repository
 git clone <your-dotfiles-repo> ~/Documents/projects/numkil/dotfiles
 ```
 
-### 2. Run the install script
+### 2. Run the install script from the repo root
 ```bash
-# Navigate to the pi directory
-cd ~/Documents/projects/numkil/dotfiles/pi
-
-# Make executable (if not already)
+cd ~/Documents/projects/numkil/dotfiles
 chmod +x install.sh
-
-# Run the installer
 ./install.sh
 ```
+
+The installer copies the PI config to `~/.pi/agent/`, installs the npm packages
+listed in `settings.json`, updates them to the latest versions, and installs the
+caveman skill.
 
 ### 3. Restart PI
 ```bash
@@ -48,7 +63,8 @@ pi --reload
 
 ## 📦 Installed Packages
 
-The following npm packages are configured in `settings.json` and will be automatically installed:
+The following npm packages are configured in `agent/settings.json` and are
+installed/updated automatically by `install.sh`:
 
 | Package | Purpose |
 |---------|---------|
@@ -125,6 +141,29 @@ Adds `/summarize` command to generate conversation summaries and `summarize_conv
 ### whimsical.ts
 Displays fun, rotating working messages while PI is thinking (e.g., "Cogitating...", "Flibbertigibbeting...", "Reticulating splines...").
 
+## 🤖 Agents
+
+Sub-agent definitions in `agent/agents/`, used with `/subagent`:
+
+| Agent | Purpose |
+|-------|---------|
+| `craft-planner` | Breaks large Craft plugin/module work into feature-by-feature steps with verification gates. Use before `craft-feature-builder`. |
+| `craft-feature-builder` | Implements one feature from a plan, layer by layer. |
+| `craft-site-builder` | Builds Craft front-end templates and components. |
+| `craft-code-reviewer` | Reviews a diff for quality, security, and Craft conventions. Use before merge. |
+| `craft-code-reviewer-deep` | Deep review for release branches and high-stakes changes. |
+| `craft-debugger` | Debugs Craft CMS issues (read-only investigation). |
+
+## 🧠 Memory
+
+`pi-hermes-memory` provides persistent memory across sessions. Configuration lives in
+`agent/hermes-memory-config.json`. Useful commands:
+
+- `/memory:add <text>` - Save a memory
+- `/memory:search <query>` - Search memories and past sessions
+- `/memory-skills` - Manage procedural skills
+- `/memory-index-sessions` - Index past sessions for search (one-time)
+
 ## 🎯 Usage Tips
 
 ### Starting a new task
@@ -159,12 +198,17 @@ You: /skill:craft-content-modeling
 ## 📝 Customization
 
 ### Adding a new extension
-1. Create a new `.ts` file in the `extensions/` directory
-2. Add it to your dotfiles
-3. Run `install.sh` on the target machine
+1. Create a new `.ts` file in `pi/agent/extensions/`
+2. Commit it to your dotfiles
+3. Run `./install.sh` from the repo root on the target machine
+
+### Adding a new skill
+1. Add the skill directory to `pi/agent/skills/`
+2. Commit it to your dotfiles
+3. Run `./install.sh` from the repo root on the target machine
 
 ### Adding a new reminder
-Edit `extensions/capability-reminder.ts` and add a new entry to the `DEFAULT_REMINDERS` array:
+Edit `pi/agent/extensions/capability-reminder.ts` and add a new entry to the `DEFAULT_REMINDERS` array:
 
 ```typescript
 {
@@ -177,9 +221,19 @@ Edit `extensions/capability-reminder.ts` and add a new entry to the `DEFAULT_REM
 ```
 
 ### Adding a new package
-1. Install the package locally: `pi install npm:package-name`
-2. Add it to `settings.json` under the `packages` array
+1. Install the package locally with a pinned version: `pi install npm:package-name@1.2.3`
+2. Add the pinned spec to `pi/agent/settings.json` under the `packages` array
 3. Commit the updated `settings.json` to your dotfiles
+
+### Updating a package
+Versions in `settings.json` are pinned, so installs are reproducible. To update:
+
+```bash
+pi install npm:package-name@<new-version>
+```
+
+Then update the pinned version in `pi/agent/settings.json` and commit. Run
+`pi list` to see what's installed.
 
 ## 🔄 Syncing Across Devices
 
@@ -196,25 +250,28 @@ To keep your PI configuration in sync across devices:
 
 2. **On another device:**
    ```bash
-   # Pull the latest changes
+   # Pull the latest changes and run the installer from the repo root
    cd ~/Documents/projects/numkil/dotfiles
    git pull
-   
-   # Run the installer
-   cd pi
    ./install.sh
    ```
 
+Package versions are pinned in `agent/settings.json`, so `./install.sh` installs
+exact, reproducible versions on any machine.
+
 ## 🎨 Settings
 
-Your `settings.json` includes:
+Your `agent/settings.json` includes:
 
-- **Model preferences**: Default provider (Mistral) and model (mistral-medium-3.5)
+- **Model preferences**: Default provider (Mistral) and model (mistral-large-4)
 - **Theme**: gruvbox-material-light
 - **Thinking level**: high
-- **UI preferences**: Fullscreen display, Mermaid streaming
+- **UI preferences**: Fullscreen TUI mode, Mermaid streaming
 - **Compaction**: Enabled with 16384 token reserve
 - **Packages**: All installed npm packages
+
+The file references the official settings schema (`https://pi.dev/schemas/settings.schema.json`)
+for editor validation and completion.
 
 ## 💡 Pro Tips
 
@@ -243,6 +300,7 @@ Your `settings.json` includes:
 - Ensure npm is installed and working
 - Check your network connection
 - Try `pi install npm:package-name` manually
+- Run `pi update --extensions` to update installed packages
 
 ### Settings not applying
 - Verify `settings.json` is in `~/.pi/agent/`

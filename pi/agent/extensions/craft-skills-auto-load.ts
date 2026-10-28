@@ -79,7 +79,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("before_agent_start", (event, ctx) => {
     if (isCraftProject(ctx.cwd)) {
       return {
-        systemPrompt: `Always use the craft-skills and ddev when relevant. ${event.systemPrompt}`,
+        systemPrompt: `This is a Craft CMS project. Immediately load the craftcms skill at the start of any task. For template work, also load craft-site and craft-twig-guidelines. For PHP work, also load craft-php-guidelines. For local development commands, also load ddev. ${event.systemPrompt}`,
       };
     }
     return {};

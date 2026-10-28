@@ -11,6 +11,7 @@
 **/auth.json
 **/trust.json
 **/models-store.json
+**/skills-lock.json
 
 # PI cache
 **/cache/

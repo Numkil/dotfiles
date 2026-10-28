@@ -5,7 +5,7 @@ description: Sync skills between the pi CLI tool, Claude Code, and the dotfiles 
 
 # Sync Pi Skills
 
-Skills have identical SKILL.md format in both tools. Syncing is a directory copy operation.
+Skills have identical SKILL.md format in both tools. Syncing is a directory copy operation. To activate the caveman plugin in pi, you need to add the caveman skill to the pi skills directory. You can do this by running the following command: `cp -r ~/.claude/skills/caveman ~/.pi/agent/skills/`
 
 ## Paths
 
